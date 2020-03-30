@@ -1,0 +1,19 @@
+{
+  "name": "voice-2d",
+  "productName": "Voice 2D",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Voice 2D monorepository for chatting on a 2D Plane",
+  "main": "",
+  "scripts": {},
+  "keywords": [],
+  "author": {
+    "name": "JacobLuke",
+    "email": "jacob.luke.abrahams@gmail.com"
+  },
+  "workspaces": {
+    "packages": [
+      "frontend-electron"
+    ]
+  }
+}
