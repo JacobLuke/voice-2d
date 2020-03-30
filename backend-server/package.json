@@ -1,0 +1,26 @@
+{
+  "name": "backend-server",
+  "version": "1.0.0",
+  "description": "Backend server for Voice 2D handling global state",
+  "main": "index.ts",
+  "author": {
+    "name": "JacobLuke",
+    "email": "jacob.luke.abrahams@gmail.com"
+  },
+  "private": true,
+  "scripts": {
+    "start": "ts-node-dev --poll --inspect --respawn src/index.ts"
+  },
+  "dependencies": {
+    "@colyseus/schema": "^0.5.34",
+    "colyseus": "^0.12.4",
+    "express": "^4.17.1",
+    "lodash": "^4.17.15",
+    "typescript": "^3.8.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.3",
+    "@types/lodash": "^4.14.149",
+    "ts-node-dev": "^1.0.0-pre.44"
+  }
+}

@@ -13,7 +13,8 @@
   },
   "workspaces": {
     "packages": [
-      "frontend-electron"
+      "frontend-electron",
+      "backend-server"
     ]
   }
 }
