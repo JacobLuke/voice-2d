@@ -1,5 +1,12 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
+import { v4 as uuid } from "uuid";
 declare const MAIN_WINDOW_WEBPACK_ENTRY: any;
+
+const ROOMS: Map<string, {
+  name: string,
+  positions: Map<string, [number, number]>,
+}> = new Map();
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) { // eslint-disable-line global-require
   app.quit();
@@ -43,3 +50,42 @@ app.on('activate', () => {
     createWindow();
   }
 });
+
+// In this file you can include the rest of your app's specific main process
+// code. You can also put them in separate files and import them here.
+ipcMain.on("rooms$get", (event) => {
+  event.reply("rooms$set", Object.fromEntries(Array.from(ROOMS.entries()).map(([key, value]) => [key, value.name])));
+})
+
+ipcMain.on("rooms$new", (event, name: string) => {
+  const id = uuid();
+  ROOMS.set(id, { name, positions: new Map() });
+  event.returnValue = id;
+})
+
+type UserJoinLeave = {
+  room: string,
+  id: string,
+};
+
+ipcMain.on("rooms$join", (event, user: UserJoinLeave) => {
+  if (!ROOMS.has(user.room)) {
+    return;
+  }
+  const room = ROOMS.get(user.room)!;
+  if (room.positions.has(user.id)) {
+    return;
+  }
+  room.positions.set(user.id, [50, 50]);
+})
+
+ipcMain.on("rooms$leave", (event, user: UserJoinLeave) => {
+  if (!ROOMS.has(user.room)) {
+    return;
+  }
+  const room = ROOMS.get(user.room)!;
+  if (!room.positions.has(user.id)) {
+    return;
+  }
+  room.positions.delete(user.id);
+})
