@@ -11,30 +11,15 @@ const ChatRoom: FC<{
     users: { [id: string]: { name: string, x: number, y: number } },
     userID: string,
     onUpdatePosition: (id: string, x: number, y: number) => void,
-    onReceiveAudio: (buffer: Float32Array) => void,
+    onReceiveAudio: (buffer: Int16Array) => void,
     onLeaveRoom: () => void,
     className?: string
-}> = ({ width, height, users, userID, onUpdatePosition, onLeaveRoom, className, onReceiveAudio }) => {
-    const { data } = useInputAudio();
-    useEffect(() => {
-        if (data) {
-            const ctx = new AudioContext();
-            const stream = ctx.createMediaStreamSource(data);
-            const gain = ctx.createGain();
-            gain.gain.value = 1;
-            const processorNode = ctx.createScriptProcessor(1024, 1, 1);
-            processorNode.onaudioprocess = (event) => {
-                onReceiveAudio(event.inputBuffer.getChannelData(0));
-            }
-            stream.connect(gain);
-            gain.connect(processorNode);
-            processorNode.connect(ctx.destination);
-            return () => { ctx.close(); }
-        }
-    }, [data?.id])
+}> = ({ name, width, height, users, userID, onUpdatePosition, onLeaveRoom, className, onReceiveAudio }) => {
+    const { loading, error } = useInputAudio(onReceiveAudio);
     return (
         <div className={className}>
             <header>
+                <h1>{name}</h1>
                 <button onClick={onLeaveRoom}>Leave Room</button>
             </header>
             <DndProvider backend={Backend}>

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, systemPreferences } from 'electron';
 declare const MAIN_WINDOW_WEBPACK_ENTRY: any;
 
 const ROOMS: Map<string, {
@@ -52,3 +52,14 @@ app.on('activate', () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
+
+
+
+ipcMain.on("requestMicrophone", (event) => {
+  const accessCheck = process.platform === "darwin"
+    ? systemPreferences.askForMediaAccess("microphone")
+    : Promise.resolve(true);
+  accessCheck.then(hasAccess => {
+    event.reply("requestMicrophone$response", hasAccess);
+  });
+})
