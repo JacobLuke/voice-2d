@@ -5,7 +5,9 @@
   "private": true,
   "description": "Voice 2D monorepository for chatting on a 2D Plane",
   "main": "",
-  "scripts": {},
+  "scripts": {
+    "start": "concurrently \"yarn --cwd=./frontend-electron start\" \"yarn --cwd=./backend-server start\""
+  },
   "keywords": [],
   "author": {
     "name": "JacobLuke",
@@ -16,5 +18,8 @@
       "frontend-electron",
       "backend-server"
     ]
+  },
+  "devDependencies": {
+    "concurrently": "^5.1.0"
   }
 }
