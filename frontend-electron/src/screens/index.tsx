@@ -36,8 +36,11 @@ const Root: FC<{ className?: string }> = ({ className }) => {
                         break;
                 }
             });
-
         };
+        room.onMessage((message) => {
+            console.log(message?.toJSON()?.data);
+        });
+
     }, [room])
 
     const handleUpdatePosition = useCallback((id: string, x: number, y: number) => {
