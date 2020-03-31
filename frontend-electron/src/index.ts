@@ -52,30 +52,3 @@ app.on('activate', () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
-
-type UserJoinLeave = {
-  room: string,
-  id: string,
-};
-
-ipcMain.on("rooms$join", (event, user: UserJoinLeave) => {
-  if (!ROOMS.has(user.room)) {
-    return;
-  }
-  const room = ROOMS.get(user.room)!;
-  if (room.positions.has(user.id)) {
-    return;
-  }
-  room.positions.set(user.id, [50, 50]);
-})
-
-ipcMain.on("rooms$leave", (event, user: UserJoinLeave) => {
-  if (!ROOMS.has(user.room)) {
-    return;
-  }
-  const room = ROOMS.get(user.room)!;
-  if (!room.positions.has(user.id)) {
-    return;
-  }
-  room.positions.delete(user.id);
-})
