@@ -1,41 +1,104 @@
-import React, { FC, useState, useEffect, useCallback, ChangeEvent } from "react";
-import { ipcRenderer, IpcRendererEvent } from "electron";
+import React, { FC, useState, useEffect, useCallback, ChangeEvent, useMemo } from "react";
+import { Client, Room } from "colyseus.js";
+import styled from "styled-components"
 
-const Login: FC<{ onSelectRoom: (room: string | null) => void }> = ({ onSelectRoom }) => {
+const Login: FC<{
+    onSelectRoom: (room: Room) => void,
+    className?: string,
+}> = ({ onSelectRoom, className }) => {
     const [rooms, setRooms] = useState<{ [id: string]: string }>({});
-    const [isNewRoom, setIsNewRoom] = useState<boolean>(false);
+    const [selectedRoom, setSelectedRoom] = useState<string | undefined>(undefined);
+    const [userName, setUserName] = useState<string>("");
     const [roomName, setRoomName] = useState<string>("");
-    const toggleNewRoom = useCallback(() => setIsNewRoom(value => !value), []);
+    const colyseus = useMemo(() => new Client(process.env.BACKEND_SERVER_URL), []);
+    const handleUserChange = useCallback((event: ChangeEvent<HTMLInputElement>) => setUserName(event.target.value), [])
     const handleRoomChange = useCallback((event: ChangeEvent<HTMLInputElement>) => setRoomName(event.target.value), [])
     const submitNewRoom = useCallback(() => {
-        console.log(roomName);
-        onSelectRoom(ipcRenderer.sendSync('rooms$new', roomName));
-    }, [roomName]);
+        colyseus.create("chat", { displayName: roomName, userName }).then(onSelectRoom);
+    }, [roomName, userName]);
+    const joinExistingRoom = useCallback(() => {
+        colyseus.joinById(selectedRoom!, { userName }).then(onSelectRoom);
+    }, [selectedRoom, userName])
+    const handleChangeSelected = useCallback((event: ChangeEvent<HTMLSelectElement>) => setSelectedRoom(event.target.value), []);
     useEffect(() => {
-        ipcRenderer.send("rooms$get");
-        const roomSetListener = (event: IpcRendererEvent, rooms: { [id: string]: string }) => {
-            console.log(rooms);
-            setRooms(rooms);
-        }
-        ipcRenderer.on("rooms$set", roomSetListener);
-        return () => {
-            ipcRenderer.removeListener("rooms$set", roomSetListener);
-        }
+        colyseus.getAvailableRooms<{ displayName: string }>().then(rooms => {
+            const byId: { [id: string]: string } = {};
+            rooms.forEach(room => {
+                byId[room.roomId] = room.metadata!.displayName;
+            });
+            setRooms(byId);
+        })
     }, []);
-    return <div>
-        {!isNewRoom && <select onChange={event => onSelectRoom(event.target.value)}>
-            <option value={undefined} />
-            {Object.entries(rooms).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
-        </select>}
-        <button onClick={toggleNewRoom}>{isNewRoom ? "Join Existing Room" : "Create New Room"}</button>
-        {isNewRoom &&
-            <>
-                <label>Enter name of room</label>
+    return <div className={className}>
+        <h1>Enter A Plane</h1>
+        <section>
+            <p>
+                <label>
+                    What's your name?
+                </label>
+                <input value={userName} onChange={handleUserChange} />
+            </p>
+        </section>
+        <section>
+            <h2>Join Existing Plane</h2>
+            <select onChange={handleChangeSelected} value={selectedRoom} disabled={!Object.keys(rooms).length}>
+                <option value={undefined} />
+                {Object.entries(rooms).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
+            </select>
+            <button onClick={joinExistingRoom} disabled={!selectedRoom || !userName}>Join</button>
+        </section>
+        <section>
+            <h2>Create New Plane</h2>
+            <p>
+                <label>Name</label>
                 <input value={roomName} onChange={handleRoomChange} />
-                <button onClick={submitNewRoom}>Submit</button>
-            </>
-        }
+            </p>
+            <button onClick={submitNewRoom} disabled={!roomName || !userName}>Create</button>
+        </section>
     </div>
 }
 
-export default Login;
+export default styled(Login)`
+h1 {
+    text-align: center;
+}
+background: #6699CC;
+width: 100%;
+flex-basis: 600px;
+margin: 10px auto;
+padding: 5px;
+display: flex;
+flex-direction: column;
+> section {
+  flex: 1;
+  background: white;
+  border: 2px solid grey;
+  border-radius: 5px;
+  margin: 5px;
+  padding: 10px;
+  button {
+      display: block;
+      margin: 10px auto;
+      font-size: 18px;
+      horizontal-align: right;
+  }
+  select {
+      width: 100%;
+      font-size: 24px;
+  }
+  p {
+      margin: auto;
+      width: 100%;
+      overflow: auto;
+      font-size: 24px;
+      > label {
+          float: left;
+      }
+      > input {
+          line-height: 24px;
+          font-size: 24px;
+          float: right;
+      }
+  }
+}
+`;
