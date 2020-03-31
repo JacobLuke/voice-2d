@@ -44,7 +44,11 @@ const Root: FC<{ className?: string }> = ({ className }) => {
             return;
         }
         room.send({ 'type': "Move", x, y, id });
-    }, [room])
+    }, [room]);
+
+    const handleSendAudio = useCallback((buffer: Float32Array) => {
+        room?.send({ type: "Input", buffer });
+    }, [room]);
 
     const handleLeaveRoom = useCallback(() => {
         room?.leave();
@@ -56,7 +60,8 @@ const Root: FC<{ className?: string }> = ({ className }) => {
             height={height}
             users={users}
             userID={room.sessionId}
-            onUpdatePosition={handleUpdatePosition} />
+            onUpdatePosition={handleUpdatePosition}
+            onReceiveAudio={handleSendAudio} />
         : <Login onSelectRoom={setRoom} />
     return (
         <div className={className}>
