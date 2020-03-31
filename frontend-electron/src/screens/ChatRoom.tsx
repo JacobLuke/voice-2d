@@ -6,6 +6,7 @@ import Plane from "../components/Plane";
 import useInputAudio from "../hooks/useInputAudio";
 
 const ChatRoom: FC<{
+    name: string,
     width: number,
     height: number,
     users: { [id: string]: { name: string, x: number, y: number } },

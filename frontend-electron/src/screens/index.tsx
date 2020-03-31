@@ -7,6 +7,7 @@ import ChatRoom from "./ChatRoom";
 
 const Root: FC<{ className?: string }> = ({ className }) => {
     const [room, setRoom] = useState<Room | null>(null);
+    const [roomName, setRoomName] = useState<string | null>(null);
     const [width, setWidth] = useState<number>(0);
     const [height, setHeight] = useState<number>(0);
     const [users, setUsers] = useState<{ [id: string]: { name: string, x: number, y: number } }>({});
@@ -46,15 +47,15 @@ const Root: FC<{ className?: string }> = ({ className }) => {
         room.send({ 'type': "Move", x, y, id });
     }, [room]);
 
-    const handleSendAudio = useCallback((buffer: Float32Array) => {
-        room?.send({ type: "Input", buffer });
+    const handleSendAudio = useCallback((buffer: Int16Array) => {
+        room?.send({ type: "Input", audio: Array.from(buffer) });
     }, [room]);
-
     const handleLeaveRoom = useCallback(() => {
         room?.leave();
     }, [room])
     const content = room
         ? <ChatRoom
+            name={roomName!}
             onLeaveRoom={handleLeaveRoom}
             width={width}
             height={height}
@@ -62,7 +63,7 @@ const Root: FC<{ className?: string }> = ({ className }) => {
             userID={room.sessionId}
             onUpdatePosition={handleUpdatePosition}
             onReceiveAudio={handleSendAudio} />
-        : <Login onSelectRoom={setRoom} />
+        : <Login onSelectRoom={setRoom} onSetRoomName={setRoomName} />
     return (
         <div className={className}>
             {content}

@@ -4,8 +4,9 @@ import styled from "styled-components"
 
 const Login: FC<{
     onSelectRoom: (room: Room) => void,
+    onSetRoomName: (name: string | null) => void,
     className?: string,
-}> = ({ onSelectRoom, className }) => {
+}> = ({ onSelectRoom, onSetRoomName, className }) => {
     const [rooms, setRooms] = useState<{ [id: string]: string }>({});
     const [selectedRoom, setSelectedRoom] = useState<string | undefined>(undefined);
     const [userName, setUserName] = useState<string>("");
@@ -15,9 +16,11 @@ const Login: FC<{
     const handleRoomChange = useCallback((event: ChangeEvent<HTMLInputElement>) => setRoomName(event.target.value), [])
     const submitNewRoom = useCallback(() => {
         colyseus.create("chat", { displayName: roomName, userName }).then(onSelectRoom);
+        onSetRoomName(roomName);
     }, [roomName, userName]);
     const joinExistingRoom = useCallback(() => {
         colyseus.joinById(selectedRoom!, { userName }).then(onSelectRoom);
+        onSetRoomName(rooms[selectedRoom!]);
     }, [selectedRoom, userName])
     const handleChangeSelected = useCallback((event: ChangeEvent<HTMLSelectElement>) => setSelectedRoom(event.target.value), []);
     useEffect(() => {
