@@ -17,7 +17,8 @@ const createWindow = () => {
     height: 600,
     width: 800,
     webPreferences: {
-      nodeIntegration: true
+      nodeIntegration: true,
+      preload: MAIN_WINDOW_WEBPACK_ENTRY,
     }
   });
 
