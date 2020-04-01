@@ -1,76 +1,82 @@
 import React, { FC, useCallback, useEffect, useState } from "react";
 import styled from "styled-components";
-import { Room } from "colyseus.js";
 import ReactDOM from "react-dom";
 import Login from "./Login";
+import NameEntry from "./NameEntry";
 import ChatRoom from "./ChatRoom";
+import SocketContext from "../components/SocketContext";
+import Socket from "../socket";
 
 const Root: FC<{ className?: string }> = ({ className }) => {
-    const [room, setRoom] = useState<Room | null>(null);
-    const [roomName, setRoomName] = useState<string | null>(null);
-    const [width, setWidth] = useState<number>(0);
-    const [height, setHeight] = useState<number>(0);
-    const [users, setUsers] = useState<{ [id: string]: { name: string, x: number, y: number } }>({});
+    const [socket, setSocket] = useState<Socket | null>(null);
+    const [userName, setUserName] = useState<string | null>(null);
+    const [room, setRoom] = useState<string | null>(null);
+    const [rooms, setRooms] = useState<{ [id: string]: string }>({})
+    const handleUpdatePosition = useCallback((id: string, x: number, y: number) => {
+        // TODO
+    }, []);
 
     useEffect(() => {
-        if (!room) {
+        Socket.init().then(setSocket);
+        return () => { socket?.close() };
+    }, []);
+
+    useEffect(() => {
+        if (!socket) {
             return;
         }
-        room.onLeave(() => {
-            setRoom(null);
-            setWidth(0);
-            setHeight(0)
-            setUsers({});
-        });
-        room.state.onChange = (changes: { field: 'width' | 'height' | 'players', value: any }[]) => {
-            changes.forEach(({ field, value }) => {
-                switch (field) {
-                    case 'width':
-                        setWidth(value);
-                        break;
-                    case 'height':
-                        setHeight(value);
-                        break;
-                    case 'players':
-                        setUsers(value.toJSON());
-                        break;
-                }
-            });
-        };
-        room.onMessage((message) => {
-            console.log(message?.toJSON()?.data);
-        });
-
-    }, [room])
-
-    const handleUpdatePosition = useCallback((id: string, x: number, y: number) => {
-        if (!room) {
-            return;
-        }
-        room.send({ 'type': "Move", x, y, id });
-    }, [room]);
+        socket.listRooms().then(setRooms);
+    }, [socket]);
 
     const handleSendAudio = useCallback((buffer: Int16Array) => {
-        room?.send({ type: "Input", audio: Array.from(buffer) });
-    }, [room]);
+        socket?.sendAudio(buffer);
+    }, [socket]);
+    const handleSetUserName = useCallback((name: string) => {
+        console.log(name, socket);
+        socket?.setUserName(name)?.then(() => setUserName(name));
+    }, [socket]);
+    // useInputAudio(handleSendAudio);
     const handleLeaveRoom = useCallback(() => {
-        room?.leave();
-    }, [room])
-    const content = room
-        ? <ChatRoom
-            name={roomName!}
-            onLeaveRoom={handleLeaveRoom}
-            width={width}
-            height={height}
-            users={users}
-            userID={room.sessionId}
-            onUpdatePosition={handleUpdatePosition}
-            onReceiveAudio={handleSendAudio} />
-        : <Login onSelectRoom={setRoom} onSetRoomName={setRoomName} />
+        Promise.resolve(socket?.leaveRoom()).then(() => setRoom(null));
+    }, [socket]);
+    const handleSelectRoom = useCallback((id: string) => {
+        socket?.joinRoom(id).then(() => setRoom(id));
+    }, [socket]);
+    const handleCreateRoom = useCallback((name: string) => {
+        socket?.createRoom(name).then(id => {
+            setRooms(rooms => ({
+                ...rooms,
+                [id]: name,
+            }));
+            setRoom(id);
+        })
+    }, [socket, rooms]);
+    let content = null;
+    if (!userName) {
+        content = <NameEntry onSubmitName={handleSetUserName} />
+    } else if (!room) {
+        content =
+            <Login
+                onSelectRoom={handleSelectRoom}
+                onCreateRoom={handleCreateRoom}
+                rooms={rooms} />
+    } else {
+        content =
+            <ChatRoom
+                name={rooms[room]}
+                onLeaveRoom={handleLeaveRoom}
+                users={{}}
+                userID={socket!.id}
+                onUpdatePosition={handleUpdatePosition}
+                onReceiveAudio={handleSendAudio}
+            />
+    }
     return (
-        <div className={className}>
-            {content}
-        </div>
+        <SocketContext.Provider value={{ socket }}>
+            <div className={className}>
+                {content}
+            </div>
+        </SocketContext.Provider>
     );
 };
 

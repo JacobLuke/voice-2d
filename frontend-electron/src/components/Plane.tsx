@@ -4,8 +4,6 @@ import styled from "styled-components";
 import UserIcon from "./UserIcon"
 
 type Props = {
-    width: number,
-    height: number,
     users: { [id: string]: { name: string, x: number, y: number } },
     userID: string,
     className?: string;

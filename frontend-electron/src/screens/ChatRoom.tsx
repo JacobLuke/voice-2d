@@ -7,15 +7,13 @@ import useInputAudio from "../hooks/useInputAudio";
 
 const ChatRoom: FC<{
     name: string,
-    width: number,
-    height: number,
     users: { [id: string]: { name: string, x: number, y: number } },
     userID: string,
     onUpdatePosition: (id: string, x: number, y: number) => void,
     onReceiveAudio: (buffer: Int16Array) => void,
     onLeaveRoom: () => void,
     className?: string
-}> = ({ name, width, height, users, userID, onUpdatePosition, onLeaveRoom, className, onReceiveAudio }) => {
+}> = ({ name, users, userID, onUpdatePosition, onLeaveRoom, className, onReceiveAudio }) => {
     const { loading, error } = useInputAudio(onReceiveAudio);
     return (
         <div className={className}>
@@ -24,7 +22,7 @@ const ChatRoom: FC<{
                 <button onClick={onLeaveRoom}>Leave Room</button>
             </header>
             <DndProvider backend={Backend}>
-                <Plane width={width} height={height} users={users} userID={userID} onMoveUser={onUpdatePosition} />
+                <Plane users={users} userID={userID} onMoveUser={onUpdatePosition} />
             </DndProvider >
         </div>
     )

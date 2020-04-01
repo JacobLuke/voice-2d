@@ -88,7 +88,6 @@
     "typescript": "^3.7.0"
   },
   "dependencies": {
-    "colyseus.js": "^0.12.2",
     "dotenv": "^8.2.0",
     "electron-squirrel-startup": "^1.0.0",
     "react": "^16.13.1",

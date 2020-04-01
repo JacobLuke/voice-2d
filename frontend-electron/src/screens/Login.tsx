@@ -1,54 +1,27 @@
 import React, { FC, useState, useEffect, useCallback, ChangeEvent, useMemo } from "react";
-import { Client, Room } from "colyseus.js";
 import styled from "styled-components"
 
 const Login: FC<{
-    onSelectRoom: (room: Room) => void,
-    onSetRoomName: (name: string | null) => void,
+    rooms: { [id: string]: string },
+    onCreateRoom: (name: string) => void,
+    onSelectRoom: (id: string) => void,
     className?: string,
-}> = ({ onSelectRoom, onSetRoomName, className }) => {
-    const [rooms, setRooms] = useState<{ [id: string]: string }>({});
+}> = ({ onCreateRoom, onSelectRoom, className, rooms }) => {
     const [selectedRoom, setSelectedRoom] = useState<string | undefined>(undefined);
-    const [userName, setUserName] = useState<string>("");
     const [roomName, setRoomName] = useState<string>("");
-    const colyseus = useMemo(() => new Client(process.env.BACKEND_SERVER_URL), []);
-    const handleUserChange = useCallback((event: ChangeEvent<HTMLInputElement>) => setUserName(event.target.value), [])
     const handleRoomChange = useCallback((event: ChangeEvent<HTMLInputElement>) => setRoomName(event.target.value), [])
-    const submitNewRoom = useCallback(() => {
-        colyseus.create("chat", { displayName: roomName, userName }).then(onSelectRoom);
-        onSetRoomName(roomName);
-    }, [roomName, userName]);
-    const joinExistingRoom = useCallback(() => {
-        colyseus.joinById(selectedRoom!, { userName }).then(onSelectRoom);
-        onSetRoomName(rooms[selectedRoom!]);
-    }, [selectedRoom, userName])
     const handleChangeSelected = useCallback((event: ChangeEvent<HTMLSelectElement>) => setSelectedRoom(event.target.value), []);
-    useEffect(() => {
-        colyseus.getAvailableRooms<{ displayName: string }>().then(rooms => {
-            const byId: { [id: string]: string } = {};
-            rooms.forEach(room => {
-                byId[room.roomId] = room.metadata!.displayName;
-            });
-            setRooms(byId);
-        })
-    }, []);
+    const handleCreateRoom = useCallback(() => onCreateRoom(roomName), [roomName]);
+    const handleJoinRoom = useCallback(() => onSelectRoom(selectedRoom!), [selectedRoom]);
     return <div className={className}>
         <h1>Enter A Plane</h1>
-        <section>
-            <p>
-                <label>
-                    What's your name?
-                </label>
-                <input value={userName} onChange={handleUserChange} />
-            </p>
-        </section>
         <section>
             <h2>Join Existing Plane</h2>
             <select onChange={handleChangeSelected} value={selectedRoom} disabled={!Object.keys(rooms).length}>
                 <option value={undefined} />
                 {Object.entries(rooms).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
             </select>
-            <button onClick={joinExistingRoom} disabled={!selectedRoom || !userName}>Join</button>
+            <button disabled={!selectedRoom} onClick={handleJoinRoom}>Join</button>
         </section>
         <section>
             <h2>Create New Plane</h2>
@@ -56,7 +29,7 @@ const Login: FC<{
                 <label>Name</label>
                 <input value={roomName} onChange={handleRoomChange} />
             </p>
-            <button onClick={submitNewRoom} disabled={!roomName || !userName}>Create</button>
+            <button disabled={!roomName} onClick={handleCreateRoom}>Create</button>
         </section>
     </div>
 }

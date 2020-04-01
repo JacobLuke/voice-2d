@@ -1,20 +1,18 @@
-import { Server } from "colyseus";
+import { WebSocketServer } from "@clusterws/cws";
 import { createServer } from "http";
-import express from "express";
-import ChatRoom from "./Room";
+import { connectSocket } from "./socket"
 
+const http = createServer();
 const PORT = parseInt(process.env.PORT!) || 5000;
 
-const app = express();
-app.use(express.json());
+const server = new WebSocketServer({ server: http });
 
-const server = new Server({
-    server: createServer(app),
+http.listen(PORT, () => {
+    console.info(`Server running on ${PORT}`)
 });
 
-server.define("chat", ChatRoom);
-
-server.listen(PORT).then(response => {
-    const info = server.transport.address();
-    console.info(`Server live at ${info.address}:${info.port}`);
+server.on("connection", (socket) => {
+    connectSocket(socket)
 })
+
+server.startAutoPing(5000, true);
