@@ -32,7 +32,6 @@ const Root: FC<{ className?: string }> = ({ className }) => {
         socket?.sendAudio(buffer);
     }, [socket]);
     const handleSetUserName = useCallback((name: string) => {
-        console.log(name, socket);
         socket?.setUserName(name)?.then(() => setUserName(name));
     }, [socket]);
     // useInputAudio(handleSendAudio);

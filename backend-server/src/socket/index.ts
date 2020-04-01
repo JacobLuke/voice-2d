@@ -1,11 +1,13 @@
 import { WebSocket } from "@clusterws/cws";
 import { v4 as uuid } from "uuid";
+import { FileWriter } from "wav";
 
 const USERS: {
     [id: string]: {
         name: string,
         socket: SocketWrapper,
         room?: string,
+        wav?: FileWriter,
     }
 } = {};
 
@@ -24,14 +26,13 @@ export function connectSocket(socket: WebSocket) {
     wrapped.on("message", message => {
         if (typeof message === 'string') {
             handleStringMessage(wrapped, message);
-        } else {
+        } else if (message instanceof ArrayBuffer) {
             handleDataMessage(wrapped, message);
         }
     });
 }
 
 function handleStringMessage(socket: SocketWrapper, message: string) {
-    console.log("string", message);
     const { action, data } = parseStringMessage(message);
     const success = `${action}.SUCCESS`;
     const failure = `${action}.FAILURE`;
@@ -40,7 +41,6 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
             return sendStringMessage(socket, success, socket.id);
         }
         case "NAME.SET":
-            console.log("here");
             USERS[socket.id] = {
                 ...USERS[socket.id],
                 name: data,
@@ -73,6 +73,7 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
                 name: data,
                 users: new Set([socket.id]),
             }
+            user.room = roomID;
             return sendStringMessage(socket, success, roomID);
         }
         case "ROOM.LISTUSERS": {
@@ -105,6 +106,10 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
                 room.users.delete(socket.id);
             }
             user.room = undefined;
+            if (user.wav) {
+                user.wav.end();
+                user.wav = undefined;
+            }
             return sendStringMessage(socket, success);
         }
         case "ROOM.SETPOS": {
@@ -128,6 +133,17 @@ function parseStringMessage(message: string) {
     }
 }
 
-function handleDataMessage(socket: SocketWrapper, message: any) {
-    console.log("data", message, typeof message);
+function handleDataMessage(socket: SocketWrapper, message: ArrayBuffer) {
+    const user = USERS[socket.id];
+    if (!user || !user.room) {
+        console.log("NO USER", USERS, message);
+        return;
+    }
+    // TODO: instead of saving to file, write to every socket in the user's room
+    user.wav = user.wav || new FileWriter("temp.wav", {
+        channels: 1,
+        sampleRate: 44100,
+        bitDepth: 16,
+    });
+    user.wav.write(Buffer.from(message));
 }

@@ -24,14 +24,13 @@ export default class Socket {
     static async init(): Promise<Socket> {
         const socket = new WebSocket(process.env.BACKEND_SERVER_URL!);
         const instance = new Socket(socket);
-        const response = await new Promise((resolve, reject) => {
+        await new Promise((resolve, reject) => {
             socket.onopen = resolve;
             socket.onerror = reject;
             socket.binaryType = 'arraybuffer';
             socket.onmessage = instance.handleMessage.bind(instance);
         });
         instance._id = await instance.getStringResponse("ME");
-        console.log(response);
         console.log("Connected");
         return instance;
     }
@@ -56,7 +55,6 @@ export default class Socket {
             this.socket.send(PONG);
             return;
         } else if (typeof message.data === 'string') {
-            console.log(message.data);
             const { action, data } = parseStringMessage(message.data);
             if (this._listeners[action]) {
                 this._listeners[action].forEach(cb => cb(data));
@@ -89,7 +87,6 @@ export default class Socket {
     }
 
     async setUserName(name: string): Promise<void> {
-        console.log(name);
         await this.getStringResponse("NAME.SET", name);
     }
 
