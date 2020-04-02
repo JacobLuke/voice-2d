@@ -3,6 +3,25 @@ const PONG = new Uint8Array([65]);
 
 const MESSAGE_SEPARATOR = "$/$";
 
+type BaseRoomMember = {
+    pos: {
+        x: number,
+        y: number,
+    }
+};
+
+export type RoomUser = BaseRoomMember & {
+    type: "USER",
+    name: string,
+};
+
+export type RoomSink = BaseRoomMember & {
+    type: "SINK",
+    owner: string,
+}
+
+export type RoomMember = RoomSink | RoomUser;
+
 function isPing(data: any) {
     if (!(data instanceof ArrayBuffer)) {
         return false;
@@ -18,9 +37,6 @@ export default class Socket {
         return this._id;
     }
 
-    private readonly _listeners: { [fn: string]: ((data: string) => void)[] } = {};
-    constructor(private readonly socket: WebSocket) { }
-
     static async init(): Promise<Socket> {
         const socket = new WebSocket(process.env.BACKEND_SERVER_URL!);
         const instance = new Socket(socket);
@@ -31,17 +47,20 @@ export default class Socket {
             socket.onmessage = instance.handleMessage.bind(instance);
         });
         instance._id = await instance.getStringResponse("ME");
-        console.log("Connected");
+        console.info("Socket connected");
         return instance;
     }
 
-    public addListener(key: string, callback: (data: string) => void) {
+    private readonly _listeners: { [fn: string]: ((data: string) => void)[] } = {};
+    constructor(private readonly socket: WebSocket) { }
+
+    protected addListener(key: string, callback: (data: string) => void) {
         this._listeners[key] = this._listeners[key] || [];
         this._listeners[key].push(callback);
     }
 
 
-    public removeListener(key: string, callback: (data: string) => void) {
+    protected removeListener(key: string, callback: (data: string) => void) {
         this._listeners[key] = this._listeners[key] || [];
         const index = this._listeners[key].indexOf(callback);
         if (index >= 0) {
@@ -49,9 +68,14 @@ export default class Socket {
         }
     }
 
+    protected attachCallback(key: string, cb: (data: string) => void): () => void {
+        this.addListener(key, cb);
+        return () => this.removeListener(key, cb);
+    }
+
     private async handleMessage(message: MessageEvent): Promise<void> {
         if (isPing(message.data)) {
-            console.log("PING RECEIVED");
+            console.info("PING");
             this.socket.send(PONG);
             return;
         } else if (typeof message.data === 'string') {
@@ -95,6 +119,20 @@ export default class Socket {
         return JSON.parse(data);
     }
 
+    async listRoomMembers(): Promise<{ [id: string]: RoomMember }> {
+        const data = await this.getStringResponse("ROOM.LISTMEMBERS");
+        return JSON.parse(data);
+    }
+
+    async updatePosition(data: { id: string, pos: { x: number, y: number } }): Promise<void> {
+        await this.getStringResponse(
+            "ROOM.MOVE",
+            data.id,
+            String(data.pos.x),
+            String(data.pos.y)
+        );
+    }
+
     async joinRoom(roomID: string): Promise<void> {
         await this.getStringResponse("ROOM.JOIN", roomID);
     }
@@ -105,6 +143,32 @@ export default class Socket {
 
     async createRoom(name: string): Promise<string> {
         return await this.getStringResponse("ROOM.NEW", name);
+    }
+
+    onAddMember(callback: (member: RoomMember & { id: string }) => void) {
+        return this.attachCallback("ROOM.NEWMEMBER", (data: string) => {
+            callback(JSON.parse(data));
+        });
+    }
+
+    onRemoveMembers(callback: (ids: string[]) => void) {
+        return this.attachCallback("ROOM.LEAVE.MEMBERS", (data: string) => {
+            const members = data.split(MESSAGE_SEPARATOR);
+            return callback(members);
+        });
+    }
+
+    onMoveMember(callback: (data: { id: string, pos: { x: number, y: number } }) => void) {
+        return this.attachCallback("ROOM.MEMBER.MOVE", data => {
+            const [id, x, y] = data.split(MESSAGE_SEPARATOR);
+            return callback({
+                id,
+                pos: {
+                    x: parseInt(x),
+                    y: parseInt(y),
+                }
+            });
+        });
     }
 
     sendAudio(buffer: Int16Array) {

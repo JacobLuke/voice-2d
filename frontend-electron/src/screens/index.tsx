@@ -64,9 +64,7 @@ const Root: FC<{ className?: string }> = ({ className }) => {
             <ChatRoom
                 name={rooms[room]}
                 onLeaveRoom={handleLeaveRoom}
-                users={{}}
                 userID={socket!.id}
-                onUpdatePosition={handleUpdatePosition}
                 onReceiveAudio={handleSendAudio}
             />
     }

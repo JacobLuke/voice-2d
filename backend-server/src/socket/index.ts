@@ -1,20 +1,35 @@
 import { WebSocket } from "@clusterws/cws";
 import { v4 as uuid } from "uuid";
 import { FileWriter } from "wav";
+import { random } from "lodash";
 
-const USERS: {
-    [id: string]: {
-        name: string,
-        socket: SocketWrapper,
-        room?: string,
-        wav?: FileWriter,
-    }
+const SOCKETS: {
+    [id: string]: SocketWrapper,
 } = {};
+
+const USER_NAMES: {
+    [id: string]: string,
+} = {};
+
+const SINKS: {
+    [id: string]: {
+        owner: string,
+        file?: FileWriter,
+    },
+} = {};
+
+type RoomMember = {
+    type: "USER" | "SINK",
+    pos: {
+        x: number,
+        y: number,
+    }
+};
 
 const ROOMS: {
     [id: string]: {
         name: string,
-        users: Set<string>,
+        members: { [id: string]: RoomMember }
     }
 } = {};
 const MESSAGE_SEPARATOR = "$/$";
@@ -23,6 +38,7 @@ type SocketWrapper = WebSocket & { id: string };
 
 export function connectSocket(socket: WebSocket) {
     const wrapped: SocketWrapper = Object.assign(socket, { id: uuid() });
+    SOCKETS[wrapped.id] = wrapped;
     wrapped.on("message", message => {
         if (typeof message === 'string') {
             handleStringMessage(wrapped, message);
@@ -41,50 +57,66 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
             return sendStringMessage(socket, success, socket.id);
         }
         case "NAME.SET":
-            USERS[socket.id] = {
-                ...USERS[socket.id],
-                name: data,
-                socket,
-            };
+            USER_NAMES[socket.id] = data;
             return sendStringMessage(socket, success);
         case "ROOM.JOIN": {
             const room = ROOMS[data];
-            const user = USERS[socket.id];
-            if (!room || !user || user.room) {
-                return sendStringMessage(socket, failure, data)
+            const otherRoom = Object.values(ROOMS).find(r => r.members[socket.id]);
+            if (!room || otherRoom) {
+                return sendStringMessage(socket, failure);
             }
-            [...room.users].forEach(o => {
-                const other = USERS[o];
-                if (other && other.socket.readyState === WebSocket.OPEN && other.room == data) {
-                    sendStringMessage(other.socket, "ROOM.NEWMEMBER", socket.id, user.name);
+            const newEntry: RoomMember = {
+                type: "USER",
+                pos: {
+                    x: random(0, 100),
+                    y: random(0, 100),
+                }
+            };
+            const entryToSend = JSON.stringify({
+                ...newEntry,
+                name: USER_NAMES[socket.id],
+                id: socket.id,
+            });
+            Object.keys(room.members).forEach(id => {
+                const other = SOCKETS[id];
+                if (other?.readyState === WebSocket.OPEN) {
+                    sendStringMessage(other, "ROOM.NEWMEMBER", entryToSend);
                 }
             });
-            room.users.add(socket.id);
-            user.room = data;
+            room.members[socket.id] = newEntry;
             return sendStringMessage(socket, success, data);
         }
         case "ROOM.NEW": {
-            const user = USERS[socket.id];
-            if (!user || user.room) {
+            const otherRoom = Object.values(ROOMS).find(r => r.members[socket.id]);
+            if (otherRoom) {
                 return sendStringMessage(socket, failure)
             }
             const roomID = uuid();
             ROOMS[roomID] = {
                 name: data,
-                users: new Set([socket.id]),
+                members: {
+                    [socket.id]: {
+                        type: "USER",
+                        pos: {
+                            x: random(0, 100),
+                            y: random(0, 100),
+                        }
+                    }
+                }
             }
-            user.room = roomID;
             return sendStringMessage(socket, success, roomID);
         }
-        case "ROOM.LISTUSERS": {
-            const user = USERS[socket.id];
-            if (!user || !user.room || !ROOMS[user.room]) {
+        case "ROOM.LISTMEMBERS": {
+            const room = Object.values(ROOMS).find(r => r.members[socket.id]);
+            if (!room) {
                 return sendStringMessage(socket, failure);
             }
-            const byId: { [id: string]: string } = {};
-            ROOMS[user.room].users.forEach(u => {
-                if (USERS[u] && USERS[u].room === user.room) {
-                    byId[u] = USERS[u].name;
+            const byId: { [id: string]: RoomMember & { name?: string, owner?: string } } = {};
+            Object.entries(room.members).forEach(([id, member]) => {
+                byId[id] = {
+                    ...member,
+                    name: USER_NAMES[id],
+                    ...SINKS[id],
                 }
             })
             return sendStringMessage(socket, success, JSON.stringify(byId));
@@ -97,24 +129,38 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
             return sendStringMessage(socket, success, JSON.stringify(byId));
         }
         case "ROOM.LEAVE": {
-            const user = USERS[socket.id];
-            if (!user) {
-                return sendStringMessage(socket, failure);
-            }
-            const room = user.room == null ? null : ROOMS[user.room];
+            const room = Object.values(ROOMS).find(room => room.members[socket.id]);
             if (room) {
-                room.users.delete(socket.id);
-            }
-            user.room = undefined;
-            if (user.wav) {
-                user.wav.end();
-                user.wav = undefined;
+                delete room.members[socket.id];
+                const sinks = Object.entries(room.members)
+                    .filter(([id, member]) => member.type === "SINK" && SINKS[id]?.owner === socket.id)
+                    .map(([id]) => id);
+                sinks.forEach(sinkID => {
+                    SINKS[sinkID]?.file?.end();
+                    delete SINKS[sinkID];
+                    delete room.members[sinkID];
+                });
+                Object.entries(room.members).filter(([id, member]) =>
+                    member.type === "USER" && SOCKETS[id]?.readyState === WebSocket.OPEN).forEach(([id]) => {
+                        sendStringMessage(SOCKETS[id], "ROOM.LEAVE.MEMBERS", socket.id, ...sinks);
+                    });
             }
             return sendStringMessage(socket, success);
         }
-        case "ROOM.SETPOS": {
-            const [x, y] = data.split(";").map(i => parseInt(i));
-            console.log("TODO", x, y);
+        case "ROOM.MOVE": {
+            const [id, sx, sy] = data.split(MESSAGE_SEPARATOR);
+            const x = parseInt(sx);
+            const y = parseInt(sy);
+            const room = Object.values(ROOMS).find(room => room.members[id]);
+            if (!room) {
+                return sendStringMessage(socket, failure);
+            }
+            room.members[id].pos = { x, y };
+            Object.entries(room.members).filter(([oid, member]) =>
+                member.type === "USER" && SOCKETS[oid]?.readyState === WebSocket.OPEN
+            ).forEach(([id]) => {
+                sendStringMessage(SOCKETS[id], "ROOM.MEMBER.MOVE", id, sx, sy);
+            });
         }
     }
 }
@@ -134,16 +180,16 @@ function parseStringMessage(message: string) {
 }
 
 function handleDataMessage(socket: SocketWrapper, message: ArrayBuffer) {
-    const user = USERS[socket.id];
-    if (!user || !user.room) {
-        console.log("NO USER", USERS, message);
+    const room = Object.values(ROOMS).find(room => room.members[socket.id]);
+    if (!room) {
+        console.log("NO USER", ROOMS, message);
         return;
     }
     // TODO: instead of saving to file, write to every socket in the user's room
-    user.wav = user.wav || new FileWriter("temp.wav", {
-        channels: 1,
-        sampleRate: 44100,
-        bitDepth: 16,
-    });
-    user.wav.write(Buffer.from(message));
+    // user.wav = user.wav || new FileWriter("temp.wav", {
+    //     channels: 1,
+    //     sampleRate: 44100,
+    //     bitDepth: 16,
+    // });
+    // user.wav.write(Buffer.from(message));
 }

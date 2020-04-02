@@ -2,24 +2,25 @@ import React, { FC, useCallback, useEffect } from "react";
 import { useDrop, DropTargetMonitor } from "react-dnd";
 import styled from "styled-components";
 import UserIcon from "./UserIcon"
+import { RoomMember } from "../socket";
 
 type Props = {
-    users: { [id: string]: { name: string, x: number, y: number } },
+    members: { [id: string]: RoomMember },
     userID: string,
     className?: string;
-    onMoveUser: (id: string, x: number, y: number) => void,
+    onMoveMember: (data: { id: string, pos: { x: number, y: number } }) => void,
 }
 
 const Plane: FC<Props> = ({
-    users,
+    members,
     userID,
     className,
-    onMoveUser,
+    onMoveMember,
 }) => {
     const handleDrop = useCallback((item: any, monitor: DropTargetMonitor) => {
         const { id, x, y } = item;
         const { x: dx, y: dy } = monitor.getDifferenceFromInitialOffset()!;
-        onMoveUser(id, parseInt(x + (dx / 5)), parseInt(y + (dy / 5)));
+        onMoveMember({ id, pos: { x: parseInt(x + (dx / 5)), y: parseInt(y + (dy / 5)) } });
     }, [])
     const [_collect, drop] = useDrop({
         accept: "UserIcon",
@@ -27,14 +28,14 @@ const Plane: FC<Props> = ({
     })
     return (
         <div className={className} ref={drop}>
-            {Object.entries(users).map(([uid, user]) =>
+            {Object.entries(members).map(([uid, member]) =>
                 <UserIcon
                     id={uid}
                     key={uid}
-                    draggable={uid === userID}
-                    name={user.name}
-                    x={user.x}
-                    y={user.y}
+                    draggable={(member.type === "USER" && uid === userID) || (member.type === "SINK" && member.owner === uid)}
+                    name={(member.type === "USER" && member.name) || "SINK"}
+                    x={member.pos.x}
+                    y={member.pos.y}
                 />
             )}
         </div>
