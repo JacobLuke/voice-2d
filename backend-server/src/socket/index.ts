@@ -14,7 +14,7 @@ const USER_NAMES: {
 const SINKS: {
     [id: string]: {
         owner: string,
-        file: FileWriter,
+        buffer: Buffer,
     },
 } = {};
 
@@ -136,7 +136,6 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
                     .filter(([id, member]) => member.type === "SINK" && SINKS[id]?.owner === socket.id)
                     .map(([id]) => id);
                 sinks.forEach(sinkID => {
-                    SINKS[sinkID]?.file?.end();
                     delete SINKS[sinkID];
                     delete room.members[sinkID];
                 });
@@ -169,14 +168,10 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
                 return sendStringMessage(socket, failure);
             }
             const sinkID = uuid();
-            const file = new FileWriter(`sink-output/${sinkID}.wav`, {
-                channels: 1, // TODO: 2
-                sampleRate: 44100,
-                bitDepth: 16,
-            });
+            const buffer = Buffer.from([]);
             SINKS[sinkID] = {
                 owner: socket.id,
-                file,
+                buffer,
             };
             const member: RoomMember = {
                 type: "SINK",
@@ -198,8 +193,21 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
             });
             room.members[sinkID] = member;
             return sendStringMessage(socket, success, data);
-
         }
+        case "ROOM.SINK.PLAY": {
+            const sink = SINKS[data];
+            const room = Object.values(ROOMS).find(room => room.members[data]);
+            if (!sink || !room) {
+                return sendStringMessage(socket, failure);
+            }
+            for (let ix = 0; ix < sink.buffer.length; ix += 2048) {
+                const buffer = sink.buffer.subarray(ix, ix + 2048);
+                sendAudio(room.members, buffer, data);
+            }
+            sink.buffer = Buffer.from([]);
+            return sendStringMessage(socket, success);
+        }
+
     }
 }
 function sendStringMessage(socket: SocketWrapper, action: string, ...parts: string[]) {
@@ -250,9 +258,9 @@ function sendAudio(members: { [id: string]: RoomMember }, data: ArrayBuffer, sou
                 return;
             }
             case "SINK": {
-                const file = SINKS[id]?.file;
-                if (file?.writable) {
-                    file.write(buffer);
+                const sink = SINKS[id];
+                if (sink) {
+                    sink.buffer = Buffer.concat([sink.buffer, buffer]);
                 }
                 return;
             }
