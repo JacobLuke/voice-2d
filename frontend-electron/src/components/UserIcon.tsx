@@ -12,7 +12,7 @@ type Props = {
 }
 
 const UserIcon: FC<Props> = ({ x, y, name, draggable, id, className, }) => {
-    const [collected, drag, preview] = useDrag({
+    const [_collected, drag] = useDrag({
         item: { id, type: "UserIcon", x, y },
         canDrag: () => draggable,
     });
