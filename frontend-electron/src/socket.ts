@@ -145,6 +145,10 @@ export default class Socket {
         return await this.getStringResponse("ROOM.NEW", name);
     }
 
+    async createSink(): Promise<void> {
+        await this.getStringResponse("ROOM.SINK.NEW");
+    }
+
     onAddMember(callback: (member: RoomMember & { id: string }) => void) {
         return this.attachCallback("ROOM.NEWMEMBER", (data: string) => {
             callback(JSON.parse(data));

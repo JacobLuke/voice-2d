@@ -57,16 +57,13 @@ const ChatRoom: FC<{
 }> = ({ name, userID, onLeaveRoom, className, onReceiveAudio }) => {
     const { loading, error } = useInputAudio(onReceiveAudio);
     const [members, memberDispatch] = useReducer(reduce, {});
-    console.log(members);
     const socket = useSocket();
     const handleUpdatePosition = useCallback(({ id, pos }: { id: string, pos: { x: number, y: number } }) => {
-        socket?.updatePosition({ id, pos })?.then(() =>
-            memberDispatch({
-                type: 'MOVE',
-                id,
-                pos,
-            }));
-    }, [socket, memberDispatch]);
+        socket?.updatePosition({ id, pos });
+    }, [socket]);
+    const handleAddSink = useCallback(() => {
+        socket?.createSink()
+    }, [socket]);
     useEffect(() => {
         if (!socket) {
             return;
@@ -96,6 +93,7 @@ const ChatRoom: FC<{
             <header>
                 <h1>{name}</h1>
                 <button onClick={onLeaveRoom}>Leave Room</button>
+                <button onClick={handleAddSink}>Create Sound Sink</button>
             </header>
             <DndProvider backend={Backend}>
                 <Plane members={members} userID={userID} onMoveMember={handleUpdatePosition} />

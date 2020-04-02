@@ -19,6 +19,7 @@ const Plane: FC<Props> = ({
 }) => {
     const handleDrop = useCallback((item: any, monitor: DropTargetMonitor) => {
         const { id, x, y } = item;
+
         const { x: dx, y: dy } = monitor.getDifferenceFromInitialOffset()!;
         onMoveMember({ id, pos: { x: parseInt(x + (dx / 5)), y: parseInt(y + (dy / 5)) } });
     }, [])
@@ -32,7 +33,7 @@ const Plane: FC<Props> = ({
                 <UserIcon
                     id={uid}
                     key={uid}
-                    draggable={(member.type === "USER" && uid === userID) || (member.type === "SINK" && member.owner === uid)}
+                    draggable={(member.type === "USER" && uid === userID) || (member.type === "SINK" && member.owner === userID)}
                     name={(member.type === "USER" && member.name) || "SINK"}
                     x={member.pos.x}
                     y={member.pos.y}
