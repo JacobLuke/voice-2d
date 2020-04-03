@@ -11,10 +11,7 @@ const Root: FC<{ className?: string }> = ({ className }) => {
     const [socket, setSocket] = useState<Socket | null>(null);
     const [userName, setUserName] = useState<string | null>(null);
     const [room, setRoom] = useState<string | null>(null);
-    const [rooms, setRooms] = useState<{ [id: string]: string }>({})
-    const handleUpdatePosition = useCallback((id: string, x: number, y: number) => {
-        // TODO
-    }, []);
+    const [rooms, setRooms] = useState<{ [id: string]: string }>({});
 
     useEffect(() => {
         Socket.init().then(setSocket);
