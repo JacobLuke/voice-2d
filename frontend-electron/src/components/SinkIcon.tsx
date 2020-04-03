@@ -1,4 +1,4 @@
-import React, { FC, useCallback } from "react";
+import React, { FC, useCallback, useState } from "react";
 import { useDrag } from "react-dnd";
 import styled from "styled-components";
 
@@ -8,22 +8,42 @@ type Props = {
     draggable: boolean,
     id: string,
     className?: string,
-    onPlay: (id: string) => void,
+    onStartRecord: (id: string) => void,
+    onStopRecord: (id: string) => void,
+    onPlayback: (id: string) => void,
 }
 
-const SinkIcon: FC<Props> = ({ x, y, draggable, id, className, onPlay }) => {
+const SinkIcon: FC<Props> = ({ x, y, draggable, id, className, onPlayback, onStopRecord, onStartRecord }) => {
+    const [status, setStatus] = useState<"RECORDING" | "RECORDED" | "EMPTY">("EMPTY");
     const [_collected, drag] = useDrag({
         item: { id, type: "UserIcon", x, y },
         canDrag: () => draggable,
+
     });
     const handlePlayClick = useCallback(() => {
-        onPlay(id)
-    }, [id]);
+        onPlayback(id);
+    }, [id, setStatus, onPlayback]);
+    const handleStartRecord = useCallback(() => {
+        onStartRecord(id);
+        setStatus("RECORDING");
+    }, [id, setStatus, onStartRecord]);
+    const handleStopRecord = useCallback(() => {
+        onStopRecord(id);
+        setStatus("RECORDED");
+    }, [id, setStatus, onStopRecord]);
+    let button = null;
+    if (status === "EMPTY") {
+        button = <span onClick={handleStartRecord}>⚫</span>
+    } else if (status === "RECORDING") {
+        button = <span onClick={handleStopRecord}>◼</span>
+    } else {
+        button = <span onClick={handlePlayClick}>▶</span>
+    }
     return (
         <div ref={drag} className={className}>
             <div className="icon" />
             <div className="controls">
-                <span onClick={handlePlayClick}>▶</span>
+                {button}
             </div>
         </div>
     )

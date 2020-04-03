@@ -65,6 +65,12 @@ const ChatRoom: FC<{
     const handleAddSink = useCallback(() => {
         socket?.createSink()
     }, [socket]);
+    const handleStartSink = useCallback((sink: string) => {
+        socket?.startSink(sink)
+    }, [socket]);
+    const handleStopSink = useCallback((sink: string) => {
+        socket?.stopSink(sink)
+    }, [socket]);
     const handlePlaySink = useCallback((sink: string) => {
         socket?.playSink(sink)
     }, [socket]);
@@ -104,7 +110,14 @@ const ChatRoom: FC<{
                 <button onClick={handleAddSink}>Create Sound Sink</button>
             </header>
             <DndProvider backend={Backend}>
-                <Plane members={members} userID={userID} onMoveMember={handleUpdatePosition} onPlaySink={handlePlaySink} />
+                <Plane
+                    members={members}
+                    userID={userID}
+                    onMoveMember={handleUpdatePosition}
+                    onPlaySink={handlePlaySink}
+                    onStartSink={handleStartSink}
+                    onStopSink={handleStopSink}
+                />
             </DndProvider >
         </div>
     )

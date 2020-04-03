@@ -10,6 +10,8 @@ type Props = {
     userID: string,
     className?: string;
     onMoveMember: (data: { id: string, pos: { x: number, y: number } }) => void,
+    onStartSink: (sinkID: string) => void,
+    onStopSink: (sinkID: string) => void,
     onPlaySink: (sinkID: string) => void,
 }
 
@@ -18,6 +20,8 @@ const Plane: FC<Props> = ({
     userID,
     className,
     onMoveMember,
+    onStartSink,
+    onStopSink,
     onPlaySink,
 }) => {
     const handleDrop = useCallback((item: any, monitor: DropTargetMonitor) => {
@@ -48,7 +52,9 @@ const Plane: FC<Props> = ({
                         draggable={member.owner === userID}
                         x={member.pos.x}
                         y={member.pos.y}
-                        onPlay={onPlaySink}
+                        onStartRecord={onStartSink}
+                        onStopRecord={onStopSink}
+                        onPlayback={onPlaySink}
                     />
             )}
         </div>

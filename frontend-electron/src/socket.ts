@@ -150,6 +150,13 @@ export default class Socket {
         await this.getStringResponse("ROOM.SINK.NEW");
     }
 
+    async startSink(sink: string): Promise<void> {
+        await this.getStringResponse("ROOM.SINK.START", sink);
+    }
+    async stopSink(sink: string): Promise<void> {
+        await this.getStringResponse("ROOM.SINK.STOP", sink);
+    }
+
     async playSink(sink: string): Promise<void> {
         await this.getStringResponse("ROOM.SINK.PLAY", sink);
     }

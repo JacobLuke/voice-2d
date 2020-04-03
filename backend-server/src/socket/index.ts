@@ -13,7 +13,8 @@ const USER_NAMES: {
 const SINKS: {
     [id: string]: {
         owner: string,
-        buffer: Buffer,
+        recording: boolean,
+        buffer?: Buffer,
     },
 } = {};
 
@@ -170,6 +171,7 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
             const buffer = Buffer.from([]);
             SINKS[sinkID] = {
                 owner: socket.id,
+                recording: false,
                 buffer,
             };
             const member: RoomMember = {
@@ -193,15 +195,31 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
             room.members[sinkID] = member;
             return sendStringMessage(socket, success, data);
         }
+        case "ROOM.SINK.START": {
+            const sink = SINKS[data];
+            if (!sink || sink.recording) {
+                return sendStringMessage(socket, failure);
+            }
+            sink.recording = true;
+            sink.buffer = Buffer.from([]);
+            return sendStringMessage(socket, success);
+        }
+        case "ROOM.SINK.STOP": {
+            const sink = SINKS[data];
+            if (!sink || !sink.recording) {
+                return sendStringMessage(socket, failure);
+            }
+            sink.recording = false;
+            return sendStringMessage(socket, success);
+        }
         case "ROOM.SINK.PLAY": {
             const sink = SINKS[data];
             const room = Object.values(ROOMS).find(room => room.members[data]);
-            if (!sink || !room) {
+            if (!sink || !room || sink.recording || !sink.buffer) {
                 return sendStringMessage(socket, failure);
             }
             // TODO: buffer audio?
             sendAudio(room.members, sink.buffer, data);
-            sink.buffer = Buffer.from([]);
             return sendStringMessage(socket, success);
         }
 
@@ -255,7 +273,7 @@ function sendAudio(members: { [id: string]: RoomMember }, data: ArrayBuffer, sou
             }
             case "SINK": {
                 const sink = SINKS[id];
-                if (sink) {
+                if (sink && sink.recording && sink.buffer) {
                     sink.buffer = Buffer.concat([sink.buffer, Buffer.from(data)]);
                 }
                 return;
