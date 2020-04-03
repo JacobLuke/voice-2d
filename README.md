@@ -2,6 +2,8 @@
 
 > Add some imaginary distance to your long-distance communication
 
+![Demo](https://fiix-images.s3.amazonaws.com/vehicles/5ba3b1f5c57f1d5545289e53/2demo.gif)
+
 VOIP applications can be overwhelming: everyone in the room is constantly front-and-centre, and even with some good prioritization algorithms dynamically changing the volume once in a while, it always feels like there's someone _right in your face_. That'd be like having an in-person chat with 5 people by splitting into 4 clones and walking in front of every one of the other people at the same time every time you wanted to say anything, and, well, that's just inhuman.
 
 Voice-2D attempts to solve this cognitive disconnect by adding in the simulation of distance and positioning into a standard chat application. I (@JacobLuke) was inspired by the various online 3D games which integrate proximity-dependant voice communication, but wanted to strip out the bare essentials and really focus on what _works_ about that (without having to, y'know, build a AAA game).
