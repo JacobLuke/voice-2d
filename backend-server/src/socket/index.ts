@@ -1,6 +1,5 @@
 import { WebSocket } from "@clusterws/cws";
 import { v4 as uuid } from "uuid";
-import { FileWriter } from "wav";
 import { random } from "lodash";
 
 const SOCKETS: {
@@ -200,10 +199,8 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
             if (!sink || !room) {
                 return sendStringMessage(socket, failure);
             }
-            for (let ix = 0; ix < sink.buffer.length; ix += 2048) {
-                const buffer = sink.buffer.subarray(ix, ix + 2048);
-                sendAudio(room.members, buffer, data);
-            }
+            // TODO: buffer audio?
+            sendAudio(room.members, sink.buffer, data);
             sink.buffer = Buffer.from([]);
             return sendStringMessage(socket, success);
         }
@@ -242,9 +239,7 @@ function handleDataMessage(socket: SocketWrapper, message: ArrayBuffer) {
 }
 
 function sendAudio(members: { [id: string]: RoomMember }, data: ArrayBuffer, sourceID: string) {
-    // TODO process relative position
-    const buffer = Buffer.from(data);
-    const sourcePos = members[sourceID].pos;
+    const pos = members[sourceID].pos;
     Object.entries(members).forEach(([id, member]) => {
         if (id === sourceID) {
             return;
@@ -253,14 +248,15 @@ function sendAudio(members: { [id: string]: RoomMember }, data: ArrayBuffer, sou
             case "USER": {
                 const socket = SOCKETS[id];
                 if (socket?.readyState === WebSocket.OPEN) {
-                    socket.send(buffer);
+                    const tagged = Buffer.concat([Buffer.from(data), Buffer.from(new Int8Array([pos.x, 0, pos.y, 0]))])
+                    socket.send(tagged);
                 }
                 return;
             }
             case "SINK": {
                 const sink = SINKS[id];
                 if (sink) {
-                    sink.buffer = Buffer.concat([sink.buffer, buffer]);
+                    sink.buffer = Buffer.concat([sink.buffer, Buffer.from(data)]);
                 }
                 return;
             }

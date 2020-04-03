@@ -32,6 +32,8 @@ function isPing(data: any) {
 
 export default class Socket {
     private _id: string = "PLACEHOLDER";
+    private readonly _listeners: { [fn: string]: ((data: string) => void)[] } = {};
+    private _audioListener: ((pos: { x: number, y: number }, data: Int16Array) => void) | null = null;
 
     get id(): string {
         return this._id;
@@ -51,7 +53,6 @@ export default class Socket {
         return instance;
     }
 
-    private readonly _listeners: { [fn: string]: ((data: string) => void)[] } = {};
     constructor(private readonly socket: WebSocket) { }
 
     protected addListener(key: string, callback: (data: string) => void) {
@@ -84,7 +85,7 @@ export default class Socket {
                 this._listeners[action].forEach(cb => cb(data));
             }
         } else {
-            console.log(message.data);
+            this.receiveAudio(new Int16Array(message.data as ArrayBuffer));
         }
     }
 
@@ -179,8 +180,21 @@ export default class Socket {
         });
     }
 
+    onAudio(output: (pos: { x: number, y: number }, data: Int16Array) => void): () => void {
+        this._audioListener = output;
+        return () => { this._audioListener = null; }
+    }
+
     sendAudio(buffer: Int16Array) {
         this.socket.send(buffer);
+    }
+
+    receiveAudio(buffer: Int16Array) {
+        const [x, y] = buffer.slice(-2);
+        const audio = buffer.subarray(0, -2);
+        if (this._audioListener) {
+            this._audioListener({ x, y }, audio);
+        }
     }
 
     close() {

@@ -4,6 +4,7 @@ import Backend from "react-dnd-html5-backend";
 import styled from "styled-components";
 import Plane from "../components/Plane";
 import useInputAudio from "../hooks/useInputAudio";
+import usePositionalAudio from "../hooks/usePositionalAudio"
 import useSocket from "../hooks/useSocket";
 import { RoomMember } from "../socket"
 
@@ -67,6 +68,7 @@ const ChatRoom: FC<{
     const handlePlaySink = useCallback((sink: string) => {
         socket?.playSink(sink)
     }, [socket]);
+    const { playPositionalAudio } = usePositionalAudio(socket == null ? null : members[socket.id]?.pos);
     useEffect(() => {
         if (!socket) {
             return;
@@ -91,6 +93,9 @@ const ChatRoom: FC<{
         ];
         return () => removeCallbacks.forEach(fn => fn());
     }, [socket, memberDispatch]);
+    useEffect(() => {
+        return socket?.onAudio(playPositionalAudio);
+    }, [socket, playPositionalAudio]);
     return (
         <div className={className}>
             <header>
