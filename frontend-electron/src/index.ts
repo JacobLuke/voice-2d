@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, systemPreferences } from 'electron';
+import { app, BrowserWindow, ipcMain, systemPreferences, screen } from 'electron';
 declare const MAIN_WINDOW_WEBPACK_ENTRY: any;
 
 const ROOMS: Map<string, {
@@ -13,20 +13,18 @@ if (require('electron-squirrel-startup')) { // eslint-disable-line global-requir
 
 const createWindow = () => {
   // Create the browser window.
+  const display = screen.getPrimaryDisplay();
   const mainWindow = new BrowserWindow({
-    height: 600,
-    width: 800,
+    width: display.bounds.width,
+    height: display.bounds.height,
     webPreferences: {
       nodeIntegration: true,
       preload: MAIN_WINDOW_WEBPACK_ENTRY,
-    }
+    },
   });
 
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
 };
 
 // This method will be called when Electron has finished
