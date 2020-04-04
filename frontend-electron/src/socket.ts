@@ -196,7 +196,7 @@ export default class Socket {
         this.socket.send(buffer);
     }
 
-    receiveAudio(buffer: Int16Array) {
+    private receiveAudio(buffer: Int16Array) {
         const sourceID = Buffer.from(buffer.buffer.slice(-36)).toString("ascii");
         const audio = buffer.subarray(0, -(36 / 2));
         if (this._audioListeners[sourceID]) {

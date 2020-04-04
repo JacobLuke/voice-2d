@@ -1,4 +1,4 @@
-import React, { FC, useEffect } from "react";
+import React, { FC, useEffect, useCallback } from "react";
 import { useDrag } from "react-dnd";
 import styled from "styled-components";
 import usePositionalAudio from "../hooks/usePositionalAudio";
@@ -18,11 +18,11 @@ const UserIcon: FC<Props> = ({ pos, listenerPos, name, draggable, id, className,
         item: { id, type: "UserIcon", x: pos.x, y: pos.y },
         canDrag: () => draggable,
     });
-    const { playPositionalAudio } = usePositionalAudio(listenerPos, pos);
     const socket = useSocket();
-    useEffect(() => {
-        return socket?.onAudio(id, playPositionalAudio)
-    }, [socket, playPositionalAudio]);
+    const listenForAudio = useCallback((callback: (data: Int16Array) => void) => {
+        return socket ? socket.onAudio(id, callback) : () => { };
+    }, [socket]);
+    usePositionalAudio(listenerPos, pos, listenForAudio);
     return <div ref={drag} className={className}>
         <div className="icon" />
         <label>{name}</label>

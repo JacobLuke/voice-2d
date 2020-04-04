@@ -14,7 +14,9 @@ const SINKS: {
     [id: string]: {
         owner: string,
         recording: boolean,
-        buffer?: Buffer,
+        buffers: {
+            [id: string]: ArrayBuffer,
+        },
     },
 } = {};
 
@@ -168,11 +170,10 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
                 return sendStringMessage(socket, failure);
             }
             const sinkID = uuid();
-            const buffer = Buffer.from([]);
             SINKS[sinkID] = {
                 owner: socket.id,
                 recording: false,
-                buffer,
+                buffers: {},
             };
             const member: RoomMember = {
                 type: "SINK",
@@ -201,7 +202,7 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
                 return sendStringMessage(socket, failure);
             }
             sink.recording = true;
-            sink.buffer = Buffer.from([]);
+            sink.buffers = {};
             return sendStringMessage(socket, success);
         }
         case "ROOM.SINK.STOP": {
@@ -215,11 +216,12 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
         case "ROOM.SINK.PLAY": {
             const sink = SINKS[data];
             const room = Object.values(ROOMS).find(room => room.members[data]);
-            if (!sink || !room || sink.recording || !sink.buffer) {
+            if (!sink || !room || sink.recording) {
                 return sendStringMessage(socket, failure);
             }
-            // TODO: buffer audio?
-            sendAudio(room.members, sink.buffer, data);
+            Object.values(sink.buffers).forEach(buffer => {
+                sendAudio(room.members, buffer, data);
+            })
             return sendStringMessage(socket, success);
         }
 
@@ -257,7 +259,6 @@ function handleDataMessage(socket: SocketWrapper, message: ArrayBuffer) {
 }
 
 function sendAudio(members: { [id: string]: RoomMember }, data: ArrayBuffer, sourceID: string) {
-    const pos = members[sourceID].pos;
     Object.entries(members).forEach(([id, member]) => {
         if (id === sourceID) {
             return;
@@ -267,14 +268,21 @@ function sendAudio(members: { [id: string]: RoomMember }, data: ArrayBuffer, sou
                 const socket = SOCKETS[id];
                 if (socket?.readyState === WebSocket.OPEN) {
                     const tagged = Buffer.concat([Buffer.from(data), Buffer.alloc(sourceID.length, sourceID, "ascii")]);
-                    socket.send(tagged);
+                    socket.send(tagged, { binary: true, compress: true });
                 }
                 return;
             }
             case "SINK": {
                 const sink = SINKS[id];
-                if (sink && sink.recording && sink.buffer) {
-                    sink.buffer = Buffer.concat([sink.buffer, Buffer.from(data)]);
+                if (sink && sink.recording) {
+                    if (!sink.buffers[sourceID]) {
+                        sink.buffers[sourceID] = data;
+                    } else {
+                        const newBuf = new Uint8Array((sink.buffers[sourceID].byteLength + data.byteLength));
+                        newBuf.set(new Uint8Array(sink.buffers[sourceID]), 0);
+                        newBuf.set(new Uint8Array(data), sink.buffers[sourceID].byteLength);
+                        sink.buffers[sourceID] = newBuf.buffer;
+                    }
                 }
                 return;
             }
