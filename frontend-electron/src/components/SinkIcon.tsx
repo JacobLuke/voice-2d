@@ -1,10 +1,12 @@
-import React, { FC, useCallback, useState } from "react";
+import React, { FC, useCallback, useState, useEffect } from "react";
 import { useDrag } from "react-dnd";
 import styled from "styled-components";
+import usePositionalAudio from "../hooks/usePositionalAudio";
+import useSocket from "../hooks/useSocket";
 
 type Props = {
-    x: number,
-    y: number,
+    pos: { x: number, y: number, },
+    listenerPos: { x: number, y: number },
     draggable: boolean,
     id: string,
     className?: string,
@@ -13,13 +15,18 @@ type Props = {
     onPlayback: (id: string) => void,
 }
 
-const SinkIcon: FC<Props> = ({ x, y, draggable, id, className, onPlayback, onStopRecord, onStartRecord }) => {
+const SinkIcon: FC<Props> = ({ pos, listenerPos, draggable, id, className, onPlayback, onStopRecord, onStartRecord }) => {
     const [status, setStatus] = useState<"RECORDING" | "RECORDED" | "EMPTY">("EMPTY");
     const [_collected, drag] = useDrag({
-        item: { id, type: "UserIcon", x, y },
+        item: { id, type: "UserIcon", x: pos.x, y: pos.y },
         canDrag: () => draggable,
 
     });
+    const { playPositionalAudio } = usePositionalAudio(listenerPos, pos);
+    const socket = useSocket();
+    useEffect(() => {
+        return socket?.onAudio(id, playPositionalAudio)
+    }, [socket, playPositionalAudio]);
     const handlePlayClick = useCallback(() => {
         onPlayback(id);
     }, [id, setStatus, onPlayback]);
@@ -51,8 +58,8 @@ const SinkIcon: FC<Props> = ({ x, y, draggable, id, className, onPlayback, onSto
 
 export default styled(SinkIcon)(props => `
   position: absolute;
-  top: ${props.y * 5 - 10}px;
-  left: ${props.x * 5 - 10}px;
+  top: ${props.pos.y * 5 - 10}px;
+  left: ${props.pos.x * 5 - 10}px;
   .icon {
       width: 20px;
       height: 20px;

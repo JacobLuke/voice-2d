@@ -1,20 +1,10 @@
 import { useEffect, useCallback, useState } from "react";
 
-export default function usePositionalAudio(listenerPos: { x: number, y: number } | null) {
-    const playPositionalAudio = useCallback((sourcePos: { x: number, y: number }, data: Int16Array) => {
-        const context = new AudioContext();
-        if (listenerPos) {
-            context.listener.positionX.value = listenerPos.x;
-            context.listener.positionZ.value = listenerPos.y;
-        }
-
-        const buffer = context.createBuffer(2, data.length, 44100);
-        const floatData = new Float32Array(data).map(i => i / 0x7fff);
-        buffer.copyToChannel(floatData, 0);
-        buffer.copyToChannel(floatData, 1);
-        const bufferSource = context.createBufferSource();
-        bufferSource.buffer = buffer;
-        const panner = context.createPanner();
+export default function usePositionalAudio(listenerPos: { x: number, y: number }, sourcePos: { x: number, y: number }) {
+    const [context] = useState<AudioContext>(new AudioContext());
+    const [start, setStart] = useState<number>(0);
+    const [panner] = useState<PannerNode>(context.createPanner());
+    useEffect(() => {
         panner.distanceModel = "inverse";
         panner.refDistance = 5;
         panner.maxDistance = 1000;
@@ -24,10 +14,24 @@ export default function usePositionalAudio(listenerPos: { x: number, y: number }
         panner.rolloffFactor = 1;
         panner.positionX.value = sourcePos.x;
         panner.positionZ.value = sourcePos.y;
-        bufferSource.connect(panner);
         panner.connect(context.destination);
-        bufferSource.start()
-    }, [listenerPos?.x, listenerPos?.y]);
+    }, [sourcePos.x, sourcePos.y]);
+    useEffect(() => {
+        context.listener.positionX.value = listenerPos.x;
+        context.listener.positionZ.value = listenerPos.y;
+    }, [listenerPos.x, listenerPos.y])
+    const playPositionalAudio = useCallback((data: Int16Array) => {
+        const buffer = context.createBuffer(2, data.length, 44100);
+        const floatData = new Float32Array(data).map(i => i / 0x7fff);
+        buffer.copyToChannel(floatData, 0);
+        buffer.copyToChannel(floatData, 1);
+        const bufferSource = context.createBufferSource();
+        bufferSource.buffer = buffer;
+        bufferSource.connect(panner);
+        const currentStart = Math.max(context.currentTime, start);
+        bufferSource.start(currentStart);
+        setStart(currentStart + buffer.duration);
+    }, [listenerPos.x, listenerPos.y, sourcePos.x, sourcePos.y]);
 
     return { playPositionalAudio };
 }

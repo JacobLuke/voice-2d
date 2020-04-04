@@ -33,7 +33,7 @@ function isPing(data: any) {
 export default class Socket {
     private _id: string = "PLACEHOLDER";
     private readonly _listeners: { [fn: string]: ((data: string) => void)[] } = {};
-    private _audioListener: ((pos: { x: number, y: number }, data: Int16Array) => void) | null = null;
+    private _audioListeners: { [id: string]: (data: Int16Array) => void } = {};
 
     get id(): string {
         return this._id;
@@ -187,9 +187,9 @@ export default class Socket {
         });
     }
 
-    onAudio(output: (pos: { x: number, y: number }, data: Int16Array) => void): () => void {
-        this._audioListener = output;
-        return () => { this._audioListener = null; }
+    onAudio(id: string, output: (data: Int16Array) => void): () => void {
+        this._audioListeners[id] = output;
+        return () => { delete this._audioListeners[id]; }
     }
 
     sendAudio(buffer: Int16Array) {
@@ -197,10 +197,10 @@ export default class Socket {
     }
 
     receiveAudio(buffer: Int16Array) {
-        const [x, y] = buffer.slice(-2);
-        const audio = buffer.subarray(0, -2);
-        if (this._audioListener) {
-            this._audioListener({ x, y }, audio);
+        const sourceID = Buffer.from(buffer.buffer.slice(-36)).toString("ascii");
+        const audio = buffer.subarray(0, -(36 / 2));
+        if (this._audioListeners[sourceID]) {
+            this._audioListeners[sourceID](audio);
         }
     }
 

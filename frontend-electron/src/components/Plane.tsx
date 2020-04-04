@@ -34,6 +34,7 @@ const Plane: FC<Props> = ({
         accept: "UserIcon",
         drop: handleDrop,
     })
+    const listenerPos = members[userID]?.pos || { x: 50, y: 50 };
     return (
         <div className={className} ref={drop}>
             {Object.entries(members).map(([uid, member]) =>
@@ -43,18 +44,18 @@ const Plane: FC<Props> = ({
                         key={uid}
                         draggable={uid === userID}
                         name={(member.type === "USER" && member.name) || "SINK"}
-                        x={member.pos.x}
-                        y={member.pos.y}
+                        pos={member.pos}
+                        listenerPos={listenerPos}
                     />
                     : <SinkIcon
                         id={uid}
                         key={uid}
                         draggable={member.owner === userID}
-                        x={member.pos.x}
-                        y={member.pos.y}
+                        pos={member.pos}
                         onStartRecord={onStartSink}
                         onStopRecord={onStopSink}
                         onPlayback={onPlaySink}
+                        listenerPos={listenerPos}
                     />
             )}
         </div>

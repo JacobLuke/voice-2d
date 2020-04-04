@@ -1,21 +1,28 @@
-import React, { FC } from "react";
+import React, { FC, useEffect } from "react";
 import { useDrag } from "react-dnd";
 import styled from "styled-components";
+import usePositionalAudio from "../hooks/usePositionalAudio";
+import useSocket from "../hooks/useSocket";
 
 type Props = {
-    x: number,
-    y: number,
+    pos: { x: number, y: number },
+    listenerPos: { x: number, y: number },
     name: string,
     draggable: boolean,
     id: string,
     className?: string
 }
 
-const UserIcon: FC<Props> = ({ x, y, name, draggable, id, className, }) => {
+const UserIcon: FC<Props> = ({ pos, listenerPos, name, draggable, id, className, }) => {
     const [_collected, drag] = useDrag({
-        item: { id, type: "UserIcon", x, y },
+        item: { id, type: "UserIcon", x: pos.x, y: pos.y },
         canDrag: () => draggable,
     });
+    const { playPositionalAudio } = usePositionalAudio(listenerPos, pos);
+    const socket = useSocket();
+    useEffect(() => {
+        return socket?.onAudio(id, playPositionalAudio)
+    }, [socket, playPositionalAudio]);
     return <div ref={drag} className={className}>
         <div className="icon" />
         <label>{name}</label>
@@ -24,8 +31,8 @@ const UserIcon: FC<Props> = ({ x, y, name, draggable, id, className, }) => {
 
 export default styled(UserIcon)(props => `
   position: absolute;
-  top: ${props.y * 5 - 10}px;
-  left: ${props.x * 5 - 10}px;
+  top: ${props.pos.y * 5 - 10}px;
+  left: ${props.pos.x * 5 - 10}px;
   .icon {
       width: 20px;
       height: 20px;

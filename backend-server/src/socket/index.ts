@@ -266,7 +266,7 @@ function sendAudio(members: { [id: string]: RoomMember }, data: ArrayBuffer, sou
             case "USER": {
                 const socket = SOCKETS[id];
                 if (socket?.readyState === WebSocket.OPEN) {
-                    const tagged = Buffer.concat([Buffer.from(data), Buffer.from(new Int8Array([pos.x, 0, pos.y, 0]))])
+                    const tagged = Buffer.concat([Buffer.from(data), Buffer.alloc(sourceID.length, sourceID, "ascii")]);
                     socket.send(tagged);
                 }
                 return;
