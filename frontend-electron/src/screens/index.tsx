@@ -76,6 +76,8 @@ const Root: FC<{ className?: string }> = ({ className }) => {
 
 const StyledRoot = styled(Root)`
 display: flex;
+height: 100vh;
+background-image: -webkit-linear-gradient(45deg, rgba(80, 124, 248) 70%, rgba(173, 198, 255) 30%);
 `
 
 ReactDOM.render(<StyledRoot />, document.getElementById('react-root'));
