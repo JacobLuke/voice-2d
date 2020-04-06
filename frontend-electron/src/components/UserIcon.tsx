@@ -19,10 +19,10 @@ const UserIcon: FC<Props> = ({ pos, listenerPos, name, draggable, id, className,
         canDrag: () => draggable,
     });
     const socket = useSocket();
-    const listenForAudio = useCallback((callback: (data: Int16Array) => void) => {
-        return socket ? socket.onAudio(id, callback) : () => { };
-    }, [socket]);
-    usePositionalAudio(listenerPos, pos, listenForAudio);
+    const { setPeerConnection } = usePositionalAudio(listenerPos, pos);
+    useEffect(() => {
+        return socket?.addPeerConnectionListener(id, setPeerConnection);
+    }, [socket, setPeerConnection]);
     return <div ref={drag} className={className}>
         <div className="icon" />
         <label>{name}</label>

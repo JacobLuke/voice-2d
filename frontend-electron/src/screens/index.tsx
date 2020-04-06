@@ -25,13 +25,9 @@ const Root: FC<{ className?: string }> = ({ className }) => {
         socket.listRooms().then(setRooms);
     }, [socket]);
 
-    const handleSendAudio = useCallback((buffer: Int16Array) => {
-        socket?.sendAudio(buffer);
-    }, [socket]);
     const handleSetUserName = useCallback((name: string) => {
         socket?.setUserName(name)?.then(() => setUserName(name));
     }, [socket]);
-    // useInputAudio(handleSendAudio);
     const handleLeaveRoom = useCallback(() => {
         Promise.resolve(socket?.leaveRoom()).then(() => setRoom(null));
     }, [socket]);
@@ -62,7 +58,6 @@ const Root: FC<{ className?: string }> = ({ className }) => {
                 name={rooms[room]}
                 onLeaveRoom={handleLeaveRoom}
                 userID={socket!.id}
-                onReceiveAudio={handleSendAudio}
             />
     }
     return (

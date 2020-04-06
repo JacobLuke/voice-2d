@@ -22,11 +22,6 @@ const SinkIcon: FC<Props> = ({ pos, listenerPos, draggable, id, className, onPla
         canDrag: () => draggable,
 
     });
-    const socket = useSocket();
-    const listenForAudio = useCallback((callback: (data: Int16Array) => void) => {
-        return socket ? socket.onAudio(id, callback) : () => { };
-    }, [socket]);
-    usePositionalAudio(listenerPos, pos, listenForAudio);
     const handlePlayClick = useCallback(() => {
         onPlayback(id);
     }, [id, setStatus, onPlayback]);

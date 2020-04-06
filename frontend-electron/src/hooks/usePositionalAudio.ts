@@ -3,12 +3,13 @@ import { useEffect, useCallback, useState } from "react";
 export default function usePositionalAudio(
     listenerPos: { x: number, y: number },
     sourcePos: { x: number, y: number },
-    attachAudioListener: (callback: (data: Int16Array) => void) => (() => void),
 ) {
     const [context] = useState<AudioContext>(new AudioContext());
-    const [start, setStart] = useState<number>(0);
-    const [panner] = useState<PannerNode>(context.createPanner());
+    const [panner, setPanner] = useState<PannerNode | null>(null);
+    const [stream] = useState<MediaStream>(new MediaStream)
+    const [streamSource, setStreamSource] = useState<MediaStreamAudioSourceNode | null>(null);
     useEffect(() => {
+        const panner = context.createPanner();
         panner.distanceModel = "inverse";
         panner.refDistance = 5;
         panner.maxDistance = 1000;
@@ -18,23 +19,27 @@ export default function usePositionalAudio(
         panner.rolloffFactor = 1;
         panner.positionX.value = sourcePos.x;
         panner.positionZ.value = sourcePos.y;
-        panner.connect(context.destination);
+        setPanner(panner);
     }, [sourcePos.x, sourcePos.y]);
     useEffect(() => {
         context.listener.positionX.value = listenerPos.x;
         context.listener.positionZ.value = listenerPos.y;
-    }, [listenerPos.x, listenerPos.y])
-    const playPositionalAudio = useCallback((data: Int16Array) => {
-        const buffer = context.createBuffer(2, data.length, 44100);
-        const floatData = new Float32Array(data).map(i => i / 0x7fff);
-        buffer.copyToChannel(floatData, 0);
-        buffer.copyToChannel(floatData, 1);
-        const bufferSource = context.createBufferSource();
-        bufferSource.buffer = buffer;
-        const currentStart = Math.max(context.currentTime, start);
-        setStart(currentStart + buffer.duration);
-        bufferSource.connect(panner);
-        bufferSource.start(currentStart);
-    }, [listenerPos.x, listenerPos.y, sourcePos.x, sourcePos.y, start, context, panner]);
-    useEffect(() => attachAudioListener(playPositionalAudio), [playPositionalAudio]);
+    }, [listenerPos.x, listenerPos.y]);
+    const setPeerConnection = useCallback((pc: RTCPeerConnection | null) => {
+        if (!pc) {
+            return;
+        }
+        pc.ontrack = (event => {
+            stream.addTrack(event.track);
+            setStreamSource(context.createMediaStreamSource(stream));
+        });
+    }, [stream]);
+    useEffect(() => {
+        if (!streamSource || !panner) {
+            return;
+        }
+        streamSource.connect(panner);
+        panner.connect(context.destination);
+    }, [streamSource, panner]);
+    return { setPeerConnection }
 }

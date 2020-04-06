@@ -33,7 +33,9 @@ function isPing(data: any) {
 export default class Socket {
     private _id: string = "PLACEHOLDER";
     private readonly _listeners: { [fn: string]: ((data: string) => void)[] } = {};
-    private _audioListeners: { [id: string]: (data: Int16Array) => void } = {};
+    private readonly _peerConnections: { [id: string]: RTCPeerConnection } = {};
+    private _globalPeerConnectionListener: ((id: string, connection: RTCPeerConnection | null) => void) | null = null;
+    private readonly _peerConnectionListeners: { [id: string]: ((cxn: RTCPeerConnection | null) => void)[] } = {}
 
     get id(): string {
         return this._id;
@@ -49,6 +51,33 @@ export default class Socket {
             socket.onmessage = instance.handleMessage.bind(instance);
         });
         instance._id = await instance.getStringResponse("ME");
+        instance.onAddMember(async member => {
+            instance.initializePeerConnection(member.id);
+            instance._peerConnections[member.id].onicecandidate = async ({ candidate }) => {
+                await instance.getStringResponse("CONNECTION.CANDIDATE", member.id, JSON.stringify(candidate));
+            }
+            instance.onPeerConnection(member.id, instance._peerConnections[member.id]);
+        });
+        instance.onRemoveMembers(members => {
+            members.forEach(id => {
+                if (instance._peerConnections[id]) {
+                    instance._peerConnections[id].close();
+                    delete instance._peerConnections[id];
+                }
+            })
+        });
+        instance.addListener("CONNECTION.CANDIDATE", data => {
+            const [id, ...rest] = data.split(MESSAGE_SEPARATOR);
+            return instance.addPeerConnectionIceCandidate(id, JSON.parse(rest.join(MESSAGE_SEPARATOR)));
+        });
+        instance.addListener("CONNECTION.OFFER", data => {
+            const [id, ...rest] = data.split(MESSAGE_SEPARATOR);
+            return instance.acceptPeerConnectionOffer(id, JSON.parse(rest.join(MESSAGE_SEPARATOR)));
+        });
+        instance.addListener("CONNECTION.ANSWER", data => {
+            const [id, ...rest] = data.split(MESSAGE_SEPARATOR);
+            return instance.acceptPeerConnectionAnswer(id, JSON.parse(rest.join(MESSAGE_SEPARATOR)));
+        })
         console.info("Socket connected");
         return instance;
     }
@@ -83,10 +112,32 @@ export default class Socket {
             const { action, data } = parseStringMessage(message.data);
             if (this._listeners[action]) {
                 this._listeners[action].forEach(cb => cb(data));
+            } else {
+                console.warn("No Listeners for", action);
             }
-        } else {
-            this.receiveAudio(new Int16Array(message.data as ArrayBuffer));
         }
+    }
+
+    private onPeerConnection(id: string, peerConnection: RTCPeerConnection | null) {
+        if (this._globalPeerConnectionListener) {
+            this._globalPeerConnectionListener(id, peerConnection);
+        }
+        if (this._peerConnectionListeners[id]) {
+            this._peerConnectionListeners[id].forEach(listener => listener(peerConnection));
+        }
+    }
+
+    private initializePeerConnection(otherID: string) {
+        if (this._peerConnections[otherID]) {
+            return;
+        }
+        const connection = new RTCPeerConnection();
+        connection.onnegotiationneeded = async () => {
+            const offer = await connection.createOffer({ voiceActivityDetection: true });
+            await connection.setLocalDescription(offer);
+            await this.getStringResponse("CONNECTION.OFFER", otherID, JSON.stringify(connection.localDescription));
+        }
+        this._peerConnections[otherID] = connection;
     }
 
     private async getStringResponse(key: string, ...data: string[]): Promise<string> {
@@ -109,6 +160,31 @@ export default class Socket {
             this.addListener(`${key}.FAILURE`, failureListener);
 
         });
+    }
+
+    private async acceptPeerConnectionOffer(id: string, offer: RTCSessionDescription) {
+        await this.initializePeerConnection(id);
+        await this._peerConnections[id].setRemoteDescription(offer);
+        this.onPeerConnection(id, this._peerConnections[id]);
+        const answer = await this._peerConnections[id].createAnswer({ voiceActivityDetection: true });
+        this._peerConnections[id].setLocalDescription(answer);
+        await this.getStringResponse("CONNECTION.ANSWER", id, JSON.stringify(answer));
+    }
+
+    private async acceptPeerConnectionAnswer(id: string, answer: RTCSessionDescription) {
+        if (!this._peerConnections[id]) {
+            return;
+        }
+        await this._peerConnections[id].setRemoteDescription(answer);
+    }
+
+    private async addPeerConnectionIceCandidate(id: string, candidate: RTCIceCandidate | null) {
+        if (!this._peerConnections[id]) {
+            return;
+        }
+        if (candidate) {
+            await this._peerConnections[id].addIceCandidate(candidate);
+        }
     }
 
     async setUserName(name: string): Promise<void> {
@@ -140,6 +216,11 @@ export default class Socket {
 
     async leaveRoom(): Promise<void> {
         await this.getStringResponse("ROOM.LEAVE");
+        Object.entries(this._peerConnections).forEach(([id, connection]) => {
+            connection.close();
+            delete this._peerConnections[id];
+            this.onPeerConnection(id, null);
+        });
     }
 
     async createRoom(name: string): Promise<string> {
@@ -159,6 +240,26 @@ export default class Socket {
 
     async playSink(sink: string): Promise<void> {
         await this.getStringResponse("ROOM.SINK.PLAY", sink);
+    }
+
+    addPeerConnectionListener(id: string, callback: (data: RTCPeerConnection | null) => void) {
+        if (id === this.id) {
+            return;
+        }
+        this._peerConnectionListeners[id] = this._peerConnectionListeners[id] || [];
+        this._peerConnectionListeners[id].push(callback);
+        if (this._peerConnections[id]) {
+            callback(this._peerConnections[id]);
+        }
+        return () => {
+            this._peerConnectionListeners[id].splice(this._peerConnectionListeners[id].indexOf(callback), 1);
+        }
+    }
+
+    addGlobalPeerConnectionListener(callback: (id: string, connection: RTCPeerConnection | null) => void) {
+        this._globalPeerConnectionListener = callback;
+        Object.entries(this._peerConnections).forEach(([id, connection]) => callback(id, connection));
+        return () => { this._globalPeerConnectionListener = null };
     }
 
     onAddMember(callback: (member: RoomMember & { id: string }) => void) {
@@ -187,24 +288,12 @@ export default class Socket {
         });
     }
 
-    onAudio(id: string, output: (data: Int16Array) => void): () => void {
-        this._audioListeners[id] = output;
-        return () => { delete this._audioListeners[id]; }
-    }
+    async close() {
+        try {
+            await this.leaveRoom();
+        } catch (e) {
 
-    sendAudio(buffer: Int16Array) {
-        this.socket.send(buffer);
-    }
-
-    private receiveAudio(buffer: Int16Array) {
-        const sourceID = Buffer.from(buffer.buffer.slice(-36)).toString("ascii");
-        const audio = buffer.subarray(0, -(36 / 2));
-        if (this._audioListeners[sourceID]) {
-            this._audioListeners[sourceID](audio);
         }
-    }
-
-    close() {
         this.socket.close();
     }
 }
@@ -222,4 +311,8 @@ function parseStringMessage(message: string) {
         action,
         data: data.join(MESSAGE_SEPARATOR),
     }
+}
+
+function isPeerConnectionReady(peerConnection?: RTCPeerConnection) {
+    return peerConnection?.connectionState === "connected";
 }

@@ -51,11 +51,10 @@ function reduce(state: ReducerState, action: ReducerAction): ReducerState {
 const ChatRoom: FC<{
     name: string,
     userID: string,
-    onReceiveAudio: (buffer: Int16Array) => void,
     onLeaveRoom: () => void,
     className?: string
-}> = ({ name, userID, onLeaveRoom, className, onReceiveAudio }) => {
-    const { loading, error } = useInputAudio(onReceiveAudio);
+}> = ({ name, userID, onLeaveRoom, className }) => {
+    const { attachPeerConnection, toggleMuteAudio, muted } = useInputAudio();
     const [members, memberDispatch] = useReducer(reduce, {});
     const socket = useSocket();
     const handleUpdatePosition = useCallback(({ id, pos }: { id: string, pos: { x: number, y: number } }) => {
@@ -97,12 +96,16 @@ const ChatRoom: FC<{
         ];
         return () => removeCallbacks.forEach(fn => fn());
     }, [socket, memberDispatch]);
+    useEffect(() => {
+        return socket?.addGlobalPeerConnectionListener(attachPeerConnection);
+    }, [socket, attachPeerConnection]);
     return (
         <div className={className}>
             <header>
                 <h1>{name}</h1>
                 <button onClick={onLeaveRoom}>Leave Room</button>
                 <button onClick={handleAddSink}>Create Sound Sink</button>
+                <button onClick={toggleMuteAudio}>{muted ? "Unmute Microphone" : "Mute Microphone"}</button>
             </header>
             <DndProvider backend={Backend}>
                 <Plane

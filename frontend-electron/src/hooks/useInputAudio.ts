@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ipcRenderer, IpcRendererEvent } from "electron";
-const mapChannelData = (buffer: Float32Array): Int16Array =>
-    new Int16Array(buffer.map(item => Math.max(Math.min(1, item), -1) * 0x7fff))
-export default function useInputAudio(onReceiveAudio: (buffer: Int16Array) => void) {
+import useSocket from "./useSocket";
+export default function useInputAudio() {
     const [hasAccess, setHasAccess] = useState<boolean | null>(null);
     const [stream, setStream] = useState<MediaStream | null>(null);
+    const [muted, setMuted] = useState<boolean>(true);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     useEffect(() => {
@@ -24,6 +24,9 @@ export default function useInputAudio(onReceiveAudio: (buffer: Int16Array) => vo
         if (hasAccess) {
             navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
                 setLoading(false);
+                stream.getAudioTracks().forEach(track => {
+                    track.enabled = !muted;
+                });
                 setStream(stream);
             }, error => {
                 setLoading(false);
@@ -33,23 +36,27 @@ export default function useInputAudio(onReceiveAudio: (buffer: Int16Array) => vo
             setLoading(false);
             setError("Microphone access disabled");
         }
-    }, [hasAccess, onReceiveAudio]);
+    }, [hasAccess]);
     useEffect(() => {
-        if (!stream) {
+        stream?.getAudioTracks()?.forEach(track => {
+            track.enabled = !muted;
+        });
+    }, [stream, muted])
+    const attachPeerConnection = useCallback((_id: string, peerConnection: RTCPeerConnection | null) => {
+        if (!stream || !peerConnection) {
             return;
         }
-        const ctx = new AudioContext();
-        const streamNode = ctx.createMediaStreamSource(stream);
-        const gain = ctx.createGain();
-        gain.gain.value = 1;
-        const processorNode = ctx.createScriptProcessor(2048, 1, 1);
-        processorNode.onaudioprocess = (event) => {
-            onReceiveAudio(mapChannelData(event.inputBuffer.getChannelData(0)));
-        }
-        streamNode.connect(gain);
-        gain.connect(processorNode);
-        processorNode.connect(ctx.destination);
-        return () => { ctx.close(); }
-    }, [stream?.id, onReceiveAudio]);
-    return { loading, error };
+        peerConnection.getSenders().forEach(sender => peerConnection.removeTrack(sender));
+        stream.getAudioTracks().forEach(track => {
+            try {
+                peerConnection.addTrack(track, stream);
+            } catch (e) {
+                console.error(e)
+            }
+        })
+    }, [stream]);
+    const toggleMuteAudio = useCallback(() => {
+        setMuted(val => !val);
+    }, [setMuted]);
+    return { loading, error, attachPeerConnection, toggleMuteAudio, muted };
 }
