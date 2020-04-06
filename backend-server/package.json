@@ -15,12 +15,15 @@
   "dependencies": {
     "@clusterws/cws": "^1.5.0",
     "@colyseus/schema": "^0.5.34",
+    "fluent-ffmpeg": "^2.1.2",
+    "fluent-ffmpeg-multistream": "^1.0.0",
     "lodash": "^4.17.15",
     "typescript": "^3.8.3",
     "uuid": "^7.0.3",
-    "wav": "^1.0.2"
+    "wrtc": "^0.4.4"
   },
   "devDependencies": {
+    "@types/fluent-ffmpeg": "^2.1.14",
     "@types/lodash": "^4.14.149",
     "@types/node": "^13.9.8",
     "@types/uuid": "^7.0.2",

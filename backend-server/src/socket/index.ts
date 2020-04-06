@@ -1,6 +1,7 @@
 import { WebSocket } from "@clusterws/cws";
 import { v4 as uuid } from "uuid";
 import { random } from "lodash";
+import SinkConnection from "./SinkConnection";
 
 const SOCKETS: {
     [id: string]: SocketWrapper,
@@ -10,28 +11,26 @@ const USER_NAMES: {
     [id: string]: string,
 } = {};
 
-const SINKS: {
-    [id: string]: {
-        owner: string,
-        recording: boolean,
-        buffers: {
-            [id: string]: ArrayBuffer,
-        },
-    },
-} = {};
-
 type RoomMember = {
-    type: "USER" | "SINK",
     pos: {
         x: number,
         y: number,
-    }
-};
+    },
+} & ({
+    type: "USER",
+    track?: string,
+} | {
+    type: "SINK",
+    owner: string,
+    connection: SinkConnection,
+})
+
+type RoomMemberWithoutConnection = Omit<RoomMember, "connection">
 
 const ROOMS: {
     [id: string]: {
         name: string,
-        members: { [id: string]: RoomMember }
+        members: { [id: string]: RoomMember },
     }
 } = {};
 const MESSAGE_SEPARATOR = "$/$";
@@ -41,16 +40,14 @@ type SocketWrapper = WebSocket & { id: string };
 export function connectSocket(socket: WebSocket) {
     const wrapped: SocketWrapper = Object.assign(socket, { id: uuid() });
     SOCKETS[wrapped.id] = wrapped;
-    wrapped.on("message", message => {
+    wrapped.on("message", async message => {
         if (typeof message === 'string') {
-            handleStringMessage(wrapped, message);
-        } else if (message instanceof ArrayBuffer) {
-            handleDataMessage(wrapped, message);
+            await handleStringMessage(wrapped, message);
         }
     });
 }
 
-function handleStringMessage(socket: SocketWrapper, message: string) {
+async function handleStringMessage(socket: SocketWrapper, message: string) {
     const { action, data } = parseStringMessage(message);
     const success = `${action}.SUCCESS`;
     const failure = `${action}.FAILURE`;
@@ -72,7 +69,7 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
                 pos: {
                     x: random(0, 100),
                     y: random(0, 100),
-                }
+                },
             };
             const entryToSend = JSON.stringify({
                 ...newEntry,
@@ -84,9 +81,10 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
                 if (other?.readyState === WebSocket.OPEN) {
                     sendStringMessage(other, "ROOM.NEWMEMBER", entryToSend);
                 }
+                // TODO: if other.connection is open, send RTCPeerConnection
             });
             room.members[socket.id] = newEntry;
-            return sendStringMessage(socket, success, data);
+            return sendStringMessage(socket, success);
         }
         case "ROOM.NEW": {
             const otherRoom = Object.values(ROOMS).find(r => r.members[socket.id]);
@@ -102,9 +100,9 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
                         pos: {
                             x: random(0, 100),
                             y: random(0, 100),
-                        }
+                        },
                     }
-                }
+                },
             }
             return sendStringMessage(socket, success, roomID);
         }
@@ -113,12 +111,11 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
             if (!room) {
                 return sendStringMessage(socket, failure);
             }
-            const byId: { [id: string]: RoomMember & { name?: string, owner?: string } } = {};
+            const byId: { [id: string]: RoomMemberWithoutConnection & { name?: string, owner?: string, track?: string } } = {};
             Object.entries(room.members).forEach(([id, member]) => {
                 byId[id] = {
                     ...member,
                     name: USER_NAMES[id],
-                    ...SINKS[id],
                 }
             })
             return sendStringMessage(socket, success, JSON.stringify(byId));
@@ -131,20 +128,27 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
             return sendStringMessage(socket, success, JSON.stringify(byId));
         }
         case "ROOM.LEAVE": {
-            const room = Object.values(ROOMS).find(room => room.members[socket.id]);
-            if (room) {
-                delete room.members[socket.id];
-                const sinks = Object.entries(room.members)
-                    .filter(([id, member]) => member.type === "SINK" && SINKS[id]?.owner === socket.id)
-                    .map(([id]) => id);
-                sinks.forEach(sinkID => {
-                    delete SINKS[sinkID];
-                    delete room.members[sinkID];
+            const roomEntry = Object.entries(ROOMS).find(room => room[1].members[socket.id]);
+            if (!roomEntry) {
+                return sendStringMessage(socket, failure);
+            }
+            const [roomID, room] = roomEntry;
+            delete room.members[socket.id];
+            const sinks: string[] = [];
+            Object.entries(room.members)
+                .forEach(([id, member]) => {
+                    if (member.type === "SINK" && member.owner === socket.id) {
+                        member.connection.close();
+                        delete room.members[id];
+                        sinks.push(id);
+                    }
                 });
-                Object.entries(room.members).filter(([id, member]) =>
-                    member.type === "USER" && SOCKETS[id]?.readyState === WebSocket.OPEN).forEach(([id]) => {
-                        sendStringMessage(SOCKETS[id], "ROOM.LEAVE.MEMBERS", socket.id, ...sinks);
-                    });
+            Object.entries(room.members).filter(([id, member]) =>
+                member.type === "USER" && SOCKETS[id]?.readyState === WebSocket.OPEN).forEach(([id]) => {
+                    sendStringMessage(SOCKETS[id], "ROOM.LEAVE.MEMBERS", socket.id, ...sinks);
+                });
+            if (!Object.keys(room.members).length) {
+                delete ROOMS[roomID];
             }
             return sendStringMessage(socket, success);
         }
@@ -170,20 +174,19 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
                 return sendStringMessage(socket, failure);
             }
             const sinkID = uuid();
-            SINKS[sinkID] = {
-                owner: socket.id,
-                recording: false,
-                buffers: {},
-            };
+            const connection = await SinkConnection.initialize(sinkID);
             const member: RoomMember = {
                 type: "SINK",
                 pos: {
                     x: random(0, 100),
                     y: random(0, 100),
-                }
+                },
+                owner: socket.id,
+                connection,
             };
+            const { connection: _, ...withoutConnection } = member;
             const entryToSend = JSON.stringify({
-                ...member,
+                ...withoutConnection,
                 owner: socket.id,
                 id: sinkID,
             });
@@ -197,33 +200,46 @@ function handleStringMessage(socket: SocketWrapper, message: string) {
             return sendStringMessage(socket, success, data);
         }
         case "ROOM.SINK.START": {
-            const sink = SINKS[data];
-            if (!sink || sink.recording) {
+            const room = Object.values(ROOMS).find(room => room.members[data]);
+            const sink = room?.members?.[data]
+            if (!room || !sink || sink.type !== "SINK") {
                 return sendStringMessage(socket, failure);
             }
-            sink.recording = true;
-            sink.buffers = {};
+            // sink.connection.onStartRecord();
             return sendStringMessage(socket, success);
         }
         case "ROOM.SINK.STOP": {
-            const sink = SINKS[data];
-            if (!sink || !sink.recording) {
+            const room = Object.values(ROOMS).find(room => room.members[data]);
+            const sink = room?.members?.[data]
+            if (!sink || sink.type !== "SINK") {
                 return sendStringMessage(socket, failure);
             }
-            sink.recording = false;
+            // sink.connection.onStopRecord();
             return sendStringMessage(socket, success);
         }
         case "ROOM.SINK.PLAY": {
-            const sink = SINKS[data];
             const room = Object.values(ROOMS).find(room => room.members[data]);
-            if (!sink || !room || sink.recording) {
+            const sink = room?.members?.[data]
+            if (!sink || sink.type !== "SINK") {
                 return sendStringMessage(socket, failure);
             }
-            Object.values(sink.buffers).forEach(buffer => {
-                sendAudio(room.members, buffer, data);
-            })
+            console.log("PLAY!");
             return sendStringMessage(socket, success);
         }
+        case "CONNECTION.CANDIDATE":
+        case "CONNECTION.OFFER":
+        case "CONNECTION.ANSWER": {
+            const room = Object.values(ROOMS).find(room => room.members[socket.id]);
+            const [id, ...rest] = data.split(MESSAGE_SEPARATOR);
+            const other = room?.members[id];
+            if (!other) {
+                return sendStringMessage(socket, failure);
+            }
+            sendStringMessage(SOCKETS[id], action, socket.id, rest.join(MESSAGE_SEPARATOR));
+            return sendStringMessage(socket, success);
+        }
+        default:
+            return sendStringMessage(socket, failure);
 
     }
 }
@@ -240,52 +256,4 @@ function parseStringMessage(message: string) {
         action,
         data: data.join(MESSAGE_SEPARATOR),
     }
-}
-
-function handleDataMessage(socket: SocketWrapper, message: ArrayBuffer) {
-    const room = Object.values(ROOMS).find(room => room.members[socket.id]);
-    if (!room) {
-        console.error("No Room");
-        return;
-    }
-    sendAudio(room.members, message, socket.id);
-    // TODO: instead of saving to file, write to every socket in the user's room
-    // user.wav = user.wav || new FileWriter("temp.wav", {
-    //     channels: 1,
-    //     sampleRate: 44100,
-    //     bitDepth: 16,
-    // });
-    // user.wav.write(Buffer.from(message));
-}
-
-function sendAudio(members: { [id: string]: RoomMember }, data: ArrayBuffer, sourceID: string) {
-    Object.entries(members).forEach(([id, member]) => {
-        if (id === sourceID) {
-            return;
-        }
-        switch (member.type) {
-            case "USER": {
-                const socket = SOCKETS[id];
-                if (socket?.readyState === WebSocket.OPEN) {
-                    const tagged = Buffer.concat([Buffer.from(data), Buffer.alloc(sourceID.length, sourceID, "ascii")]);
-                    socket.send(tagged, { binary: true, compress: true });
-                }
-                return;
-            }
-            case "SINK": {
-                const sink = SINKS[id];
-                if (sink && sink.recording) {
-                    if (!sink.buffers[sourceID]) {
-                        sink.buffers[sourceID] = data;
-                    } else {
-                        const newBuf = new Uint8Array((sink.buffers[sourceID].byteLength + data.byteLength));
-                        newBuf.set(new Uint8Array(sink.buffers[sourceID]), 0);
-                        newBuf.set(new Uint8Array(data), sink.buffers[sourceID].byteLength);
-                        sink.buffers[sourceID] = newBuf.buffer;
-                    }
-                }
-                return;
-            }
-        }
-    })
 }
