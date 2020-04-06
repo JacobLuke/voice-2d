@@ -14,67 +14,99 @@ const Login: FC<{
     const handleCreateRoom = useCallback(() => onCreateRoom(roomName), [roomName]);
     const handleJoinRoom = useCallback(() => onSelectRoom(selectedRoom!), [selectedRoom]);
     return <div className={className}>
-        <h1>Enter A Plane</h1>
         <section>
-            <h2>Join Existing Plane</h2>
-            <select onChange={handleChangeSelected} value={selectedRoom} disabled={!Object.keys(rooms).length}>
-                <option value={undefined} />
-                {Object.entries(rooms).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
-            </select>
-            <button disabled={!selectedRoom} onClick={handleJoinRoom}>Join</button>
+            <h1>Enter a room</h1>
         </section>
-        <section>
-            <h2>Create New Plane</h2>
-            <p>
-                <label>Name</label>
+        <section className="form">
+            <h3>Join an existing room</h3>
+            <div className="formFields">
+                <select onChange={handleChangeSelected} value={selectedRoom} disabled={!Object.keys(rooms).length}>
+                    <option value={undefined}>Select a room</option>
+                    {Object.entries(rooms).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
+                </select>
+            </div>
+            <button disabled={!selectedRoom} onClick={handleJoinRoom}>Join room</button>
+        </section>
+        <section className="form">
+            <h3>Create a new room</h3>
+            <div className="formFields">
                 <input value={roomName} onChange={handleRoomChange} />
-            </p>
-            <button disabled={!roomName} onClick={handleCreateRoom}>Create</button>
+            </div>
+            <button disabled={!roomName} onClick={handleCreateRoom}>Create room</button>
         </section>
     </div>
 }
 
 export default styled(Login)`
 h1 {
-    text-align: center;
+    text-align: left;
+    color: white;
+    font-size: 36px;
+    margin: 0px;
 }
-background: #6699CC;
+h3 {
+    color: rgba(173,198,255);
+    font-size: 18px;
+}
 width: 100%;
-flex-basis: 600px;
-margin: 10px auto;
-padding: 5px;
+justify-content: center;
+align-items: center;
 display: flex;
 flex-direction: column;
 > section {
-  flex: 1;
-  background: white;
-  border: 2px solid grey;
-  border-radius: 5px;
-  margin: 5px;
-  padding: 10px;
+    width: 50%;
+    margin: 15px 0px;
+}
+> .form {
   button {
       display: block;
-      margin: 10px auto;
-      font-size: 18px;
-      horizontal-align: right;
+      font-size: 14px;
+      color: rgba(249, 224, 189);
+      background: transparent;
+      border: 1px solid;
+      border-color: rgba(249, 224, 189);
+      border-radius: 4px;
+      padding: 10px 15px;
+      margin: 15px 0px;
+      cursor: pointer;
+  }
+  button: hover {
+      background: rgba(249, 224, 189);
+      color: rgba(80, 124, 248);
+  }
+  button: disabled {
+    background: transparent;
+    color: rgba(249, 224, 189);
   }
   select {
-      width: 100%;
-      font-size: 24px;
+      width: 200px;
+      font-size: 14px;
+      outline: 0;
+      border-width: 0 0 2px;
+      border-color: white;
+      border-radius: 0px;
+      background: transparent;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      cursor: pointer;
+      color: white;
   }
-  p {
-      margin: auto;
-      width: 100%;
-      overflow: auto;
-      font-size: 24px;
-      > label {
-          float: left;
-      }
-      > input {
-          line-height: 24px;
-          font-size: 24px;
-          float: right;
-      }
+  input {
+    outline: 0;
+    border-width: 0 0 2px;
+    border-color: white;
+    background: transparent;
+    font-size: 14px;
+    margin: 10px 0px 0px 0px;
+    display: block;
+    color: white;
+    width: 200px;
+  }
+  input:focus {
+    border-color: rgba(249, 224, 189);
+  }
+  .formFields {
+    margin: 25px 0px;
   }
 }
 `;
