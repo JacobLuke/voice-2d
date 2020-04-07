@@ -24,9 +24,6 @@ export default function useInputAudio() {
         if (hasAccess) {
             navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
                 setLoading(false);
-                stream.getAudioTracks().forEach(track => {
-                    track.enabled = !muted;
-                });
                 setStream(stream);
             }, error => {
                 setLoading(false);
@@ -40,14 +37,15 @@ export default function useInputAudio() {
     useEffect(() => {
         stream?.getAudioTracks()?.forEach(track => {
             track.enabled = !muted;
+            console.log(track.id, track.enabled);
         });
     }, [stream, muted])
     const attachPeerConnection = useCallback((_id: string, peerConnection: RTCPeerConnection | null) => {
-        if (!stream || !peerConnection) {
+        if (!peerConnection) {
             return;
         }
         peerConnection.getSenders().forEach(sender => peerConnection.removeTrack(sender));
-        stream.getAudioTracks().forEach(track => {
+        stream?.getAudioTracks()?.forEach(track => {
             try {
                 peerConnection.addTrack(track, stream);
             } catch (e) {

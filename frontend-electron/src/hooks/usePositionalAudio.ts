@@ -9,6 +9,9 @@ export default function usePositionalAudio(
     const [stream] = useState<MediaStream>(new MediaStream)
     const [streamSource, setStreamSource] = useState<MediaStreamAudioSourceNode | null>(null);
     useEffect(() => {
+        return () => { context.close(); }
+    }, []);
+    useEffect(() => {
         const panner = context.createPanner();
         panner.distanceModel = "inverse";
         panner.refDistance = 5;
