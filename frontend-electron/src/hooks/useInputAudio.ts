@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { ipcRenderer, IpcRendererEvent } from "electron";
-import useSocket from "./useSocket";
 export default function useInputAudio() {
     const [hasAccess, setHasAccess] = useState<boolean | null>(null);
     const [stream, setStream] = useState<MediaStream | null>(null);
@@ -37,7 +36,6 @@ export default function useInputAudio() {
     useEffect(() => {
         stream?.getAudioTracks()?.forEach(track => {
             track.enabled = !muted;
-            console.log(track.id, track.enabled);
         });
     }, [stream, muted])
     const attachPeerConnection = useCallback((_id: string, peerConnection: RTCPeerConnection | null) => {

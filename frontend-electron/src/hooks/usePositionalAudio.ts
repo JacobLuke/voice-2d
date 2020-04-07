@@ -6,7 +6,6 @@ export default function usePositionalAudio(
 ) {
     const [context] = useState<AudioContext>(new AudioContext());
     const [panner, setPanner] = useState<PannerNode | null>(null);
-    const [stream] = useState<MediaStream>(new MediaStream)
     const [streamSource, setStreamSource] = useState<MediaStreamAudioSourceNode | null>(null);
     useEffect(() => {
         return () => { context.close(); }
@@ -32,11 +31,12 @@ export default function usePositionalAudio(
         if (!pc) {
             return;
         }
-        pc.ontrack = (event => {
-            stream.addTrack(event.track);
-            setStreamSource(context.createMediaStreamSource(stream));
-        });
-    }, [stream]);
+        pc.ontrack = event => {
+            console.log(event);
+            console.log(event.streams);
+            setStreamSource(context.createMediaStreamSource(event.streams[0]));
+        };
+    }, [setStreamSource]);
     useEffect(() => {
         if (!streamSource || !panner) {
             return;
