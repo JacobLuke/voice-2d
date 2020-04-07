@@ -89,6 +89,7 @@
   },
   "dependencies": {
     "dotenv": "^8.2.0",
+    "electron": "^8.2.1",
     "electron-squirrel-startup": "^1.0.0",
     "react": "^16.13.1",
     "react-dnd": "^10.0.2",

@@ -52,11 +52,20 @@ export default class Socket {
         });
         instance._id = await instance.getStringResponse("ME");
         instance.onAddMember(async member => {
-            instance.initializePeerConnection(member.id);
-            instance._peerConnections[member.id].onicecandidate = async ({ candidate }) => {
+            const connection = instance.initializePeerConnection(member.id);
+            instance.onPeerConnection(member.id, connection);
+            connection.onnegotiationneeded = async () => {
+                console.log("NEGOTIATION");
+                const offer = await connection.createOffer({ voiceActivityDetection: true });
+                await connection.setLocalDescription(offer);
+                await instance.getStringResponse("CONNECTION.OFFER", member.id, JSON.stringify(connection.localDescription));
+            }
+            connection.onicecandidate = async ({ candidate }) => {
+                if (candidate == null) {
+                    return;
+                }
                 await instance.getStringResponse("CONNECTION.CANDIDATE", member.id, JSON.stringify(candidate));
             }
-            instance.onPeerConnection(member.id, instance._peerConnections[member.id]);
         });
         instance.onRemoveMembers(members => {
             members.forEach(id => {
@@ -119,6 +128,7 @@ export default class Socket {
     }
 
     private onPeerConnection(id: string, peerConnection: RTCPeerConnection | null) {
+        console.log(Date.now(), "ON PEER");
         if (this._globalPeerConnectionListener) {
             this._globalPeerConnectionListener(id, peerConnection);
         }
@@ -129,37 +139,19 @@ export default class Socket {
 
     private initializePeerConnection(otherID: string) {
         if (this._peerConnections[otherID]) {
-            return;
+            return this._peerConnections[otherID];
         }
         const connection = new RTCPeerConnection({
             iceServers: [
-                { urls: 'stun:stun01.sipphone.com' },
-                { urls: 'stun:stun.ekiga.net' },
-                { urls: 'stun:stun.fwdnet.net' },
-                { urls: 'stun:stun.ideasip.com' },
-                { urls: 'stun:stun.iptel.org' },
-                { urls: 'stun:stun.rixtelecom.se' },
-                { urls: 'stun:stun.schlund.de' },
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
                 { urls: 'stun:stun2.l.google.com:19302' },
                 { urls: 'stun:stun3.l.google.com:19302' },
                 { urls: 'stun:stun4.l.google.com:19302' },
-                { urls: 'stun:stunserver.org' },
-                { urls: 'stun:stun.softjoys.com' },
-                { urls: 'stun:stun.voiparound.com' },
-                { urls: 'stun:stun.voipbuster.com' },
-                { urls: 'stun:stun.voipstunt.com' },
-                { urls: 'stun:stun.voxgratia.org' },
-                { urls: 'stun:stun.xten.com' },
-            ]
+            ],
         });
-        connection.onnegotiationneeded = async () => {
-            const offer = await connection.createOffer({ voiceActivityDetection: true });
-            await connection.setLocalDescription(offer);
-            await this.getStringResponse("CONNECTION.OFFER", otherID, JSON.stringify(connection.localDescription));
-        }
         this._peerConnections[otherID] = connection;
+        return connection;
     }
 
     private async getStringResponse(key: string, ...data: string[]): Promise<string> {
@@ -185,12 +177,12 @@ export default class Socket {
     }
 
     private async acceptPeerConnectionOffer(id: string, offer: RTCSessionDescription) {
-        await this.initializePeerConnection(id);
-        await this._peerConnections[id].setRemoteDescription(offer);
-        this.onPeerConnection(id, this._peerConnections[id]);
-        const answer = await this._peerConnections[id].createAnswer({ voiceActivityDetection: true });
-        this._peerConnections[id].setLocalDescription(answer);
-        await this.getStringResponse("CONNECTION.ANSWER", id, JSON.stringify(answer));
+        const connection = this.initializePeerConnection(id);
+        await connection.setRemoteDescription(offer);
+        this.onPeerConnection(id, connection);
+        const answer = await connection.createAnswer();
+        await connection.setLocalDescription(answer);
+        await this.getStringResponse("CONNECTION.ANSWER", id, JSON.stringify(connection.localDescription));
     }
 
     private async acceptPeerConnectionAnswer(id: string, answer: RTCSessionDescription) {
@@ -200,13 +192,11 @@ export default class Socket {
         await this._peerConnections[id].setRemoteDescription(answer);
     }
 
-    private async addPeerConnectionIceCandidate(id: string, candidate: RTCIceCandidate | null) {
+    private async addPeerConnectionIceCandidate(id: string, candidate: RTCIceCandidate) {
         if (!this._peerConnections[id]) {
             return;
         }
-        if (candidate) {
-            await this._peerConnections[id].addIceCandidate(candidate);
-        }
+        await this._peerConnections[id].addIceCandidate(candidate);
     }
 
     async setUserName(name: string): Promise<void> {
@@ -270,9 +260,7 @@ export default class Socket {
         }
         this._peerConnectionListeners[id] = this._peerConnectionListeners[id] || [];
         this._peerConnectionListeners[id].push(callback);
-        if (this._peerConnections[id]) {
-            callback(this._peerConnections[id]);
-        }
+        callback(this._peerConnections[id] || null);
         return () => {
             this._peerConnectionListeners[id].splice(this._peerConnectionListeners[id].indexOf(callback), 1);
         }
@@ -280,7 +268,6 @@ export default class Socket {
 
     addGlobalPeerConnectionListener(callback: (id: string, connection: RTCPeerConnection | null) => void) {
         this._globalPeerConnectionListener = callback;
-        Object.entries(this._peerConnections).forEach(([id, connection]) => callback(id, connection));
         return () => { this._globalPeerConnectionListener = null };
     }
 

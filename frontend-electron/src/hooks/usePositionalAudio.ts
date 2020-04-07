@@ -32,9 +32,8 @@ export default function usePositionalAudio(
             return;
         }
         pc.ontrack = event => {
-            console.log(event);
-            console.log(event.streams);
-            setStreamSource(context.createMediaStreamSource(event.streams[0]));
+            console.log(Date.now(), "SET OUTPUT");
+            setStreamSource(event.streams.length == 0 ? null : context.createMediaStreamSource(event.streams[0]));
         };
     }, [setStreamSource]);
     useEffect(() => {
