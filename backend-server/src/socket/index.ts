@@ -43,6 +43,30 @@ export function connectSocket(socket: WebSocket) {
             await handleStringMessage(wrapped, message);
         }
     });
+    wrapped.onclose = () => {
+        const roomEntry = Object.entries(ROOMS).find(entry => entry[1].members[wrapped.id]);
+        if (roomEntry) {
+            // TODO refactor this to share with "ROOM.LEAVE"
+            const [roomID, room] = roomEntry;
+            delete room.members[wrapped.id];
+            const sinks: string[] = [];
+            Object.entries(room.members)
+                .forEach(([id, member]) => {
+                    if (member.type === "SINK" && member.owner === wrapped.id) {
+                        delete room.members[id];
+                        sinks.push(id);
+                    }
+                });
+            Object.entries(room.members).filter(([id, member]) =>
+                member.type === "USER" && SOCKETS[id]?.readyState === WebSocket.OPEN).forEach(([id]) => {
+                    sendStringMessage(SOCKETS[id], "ROOM.LEAVE.MEMBERS", wrapped.id, ...sinks);
+                });
+            if (!Object.keys(room.members).length) {
+                delete ROOMS[roomID];
+            }
+        }
+        delete SOCKETS[wrapped.id];
+    }
 }
 
 async function handleStringMessage(socket: SocketWrapper, message: string) {
