@@ -23,7 +23,7 @@ RUN apk update \
 
 ENV PORT 8080
 EXPOSE 8080
-
+ENV NODE_ENV production
 
 CMD node dist/index.js
 
