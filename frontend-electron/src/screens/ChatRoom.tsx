@@ -104,7 +104,6 @@ const ChatRoom: FC<{
             <header>
                 <h1>{name}</h1>
                 <button onClick={onLeaveRoom}>Leave Room</button>
-                <button onClick={handleAddSink}>Create Sound Sink</button>
                 <button onClick={toggleMuteAudio}>{muted ? "Unmute Microphone" : "Mute Microphone"}</button>
             </header>
             <DndProvider backend={Backend}>
