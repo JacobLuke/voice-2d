@@ -54,18 +54,7 @@ export default class Socket {
         instance.onAddMember(async member => {
             const connection = instance.initializePeerConnection(member.id);
             instance.onPeerConnection(member.id, connection);
-            connection.onnegotiationneeded = async () => {
-                console.log("NEGOTIATION");
-                const offer = await connection.createOffer({ voiceActivityDetection: true });
-                await connection.setLocalDescription(offer);
-                await instance.getStringResponse("CONNECTION.OFFER", member.id, JSON.stringify(connection.localDescription));
-            }
-            connection.onicecandidate = async ({ candidate }) => {
-                if (candidate == null) {
-                    return;
-                }
-                await instance.getStringResponse("CONNECTION.CANDIDATE", member.id, JSON.stringify(candidate));
-            }
+
         });
         instance.onRemoveMembers(members => {
             members.forEach(id => {
@@ -128,7 +117,6 @@ export default class Socket {
     }
 
     private onPeerConnection(id: string, peerConnection: RTCPeerConnection | null) {
-        console.log(Date.now(), "ON PEER");
         if (this._globalPeerConnectionListener) {
             this._globalPeerConnectionListener(id, peerConnection);
         }
@@ -150,6 +138,17 @@ export default class Socket {
                 { urls: 'stun:stun4.l.google.com:19302' },
             ],
         });
+        connection.onnegotiationneeded = async () => {
+            const offer = await connection.createOffer({ voiceActivityDetection: true });
+            await connection.setLocalDescription(offer);
+            await this.getStringResponse("CONNECTION.OFFER", otherID, JSON.stringify(connection.localDescription));
+        }
+        connection.onicecandidate = async ({ candidate }) => {
+            if (candidate == null) {
+                return;
+            }
+            await this.getStringResponse("CONNECTION.CANDIDATE", otherID, JSON.stringify(candidate));
+        }
         this._peerConnections[otherID] = connection;
         return connection;
     }
@@ -268,6 +267,7 @@ export default class Socket {
 
     addGlobalPeerConnectionListener(callback: (id: string, connection: RTCPeerConnection | null) => void) {
         this._globalPeerConnectionListener = callback;
+        Object.entries(this._peerConnections).forEach(conn => callback(...conn));
         return () => { this._globalPeerConnectionListener = null };
     }
 

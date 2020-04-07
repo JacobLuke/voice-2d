@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useCallback } from "react";
+import React, { FC, useEffect, useRef } from "react";
 import { useDrag } from "react-dnd";
 import styled from "styled-components";
 import usePositionalAudio from "../hooks/usePositionalAudio";
@@ -19,13 +19,20 @@ const UserIcon: FC<Props> = ({ pos, listenerPos, name, draggable, id, className,
         canDrag: () => draggable,
     });
     const socket = useSocket();
-    const { setPeerConnection } = usePositionalAudio(listenerPos, pos);
+    const audioRef = useRef<HTMLAudioElement>(null);
+    const { setPeerConnection, srcObject } = usePositionalAudio(listenerPos, pos);
+    useEffect(() => {
+        if (audioRef.current) {
+            audioRef.current.srcObject = srcObject || null;
+        }
+    }, [audioRef.current, srcObject])
     useEffect(() => {
         return socket?.addPeerConnectionListener(id, setPeerConnection);
     }, [socket, setPeerConnection]);
     return <div ref={drag} className={className}>
         <div className="icon" />
         <label>{name}</label>
+        <audio muted ref={audioRef} />
     </div>
 }
 

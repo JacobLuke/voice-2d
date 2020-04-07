@@ -39,7 +39,6 @@ export default function useInputAudio() {
         });
     }, [stream, muted])
     const attachPeerConnection = useCallback((_id: string, peerConnection: RTCPeerConnection | null) => {
-        console.log(Date.now(), "SET INPUT");
         if (!peerConnection) {
             return;
         }

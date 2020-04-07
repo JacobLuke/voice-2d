@@ -6,7 +6,7 @@ export default function usePositionalAudio(
 ) {
     const [context] = useState<AudioContext>(new AudioContext());
     const [panner, setPanner] = useState<PannerNode | null>(null);
-    const [streamSource, setStreamSource] = useState<MediaStreamAudioSourceNode | null>(null);
+    const [outputStream, setOutputStream] = useState<MediaStream | null>(null);
     useEffect(() => {
         return () => { context.close(); }
     }, []);
@@ -32,16 +32,18 @@ export default function usePositionalAudio(
             return;
         }
         pc.ontrack = event => {
-            console.log(Date.now(), "SET OUTPUT");
-            setStreamSource(event.streams.length == 0 ? null : context.createMediaStreamSource(event.streams[0]));
+            const stream = new MediaStream();
+            stream.addTrack(event.track);
+            setOutputStream(stream);
         };
-    }, [setStreamSource]);
+    }, [setOutputStream]);
     useEffect(() => {
-        if (!streamSource || !panner) {
+        if (!outputStream || !panner) {
             return;
         }
-        streamSource.connect(panner);
+        const streamNode = context.createMediaStreamSource(outputStream);
+        streamNode.connect(panner);
         panner.connect(context.destination);
-    }, [streamSource, panner]);
-    return { setPeerConnection }
+    }, [outputStream, panner]);
+    return { setPeerConnection, srcObject: outputStream }
 }
