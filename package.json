@@ -1,9 +1,9 @@
 {
   "name": "voice-2d",
-  "productName": "Voice 2D",
+  "productName": "Zeitgeist Voice",
   "version": "1.0.0",
   "private": true,
-  "description": "Voice 2D monorepository for chatting on a 2D Plane",
+  "description": "Voice monorepository for chatting on a 2D Plane",
   "main": "",
   "scripts": {
     "start": "concurrently \"yarn --cwd=./frontend-electron start\" \"yarn --cwd=./backend-server start\""

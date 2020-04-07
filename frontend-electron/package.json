@@ -25,7 +25,7 @@
         {
           "name": "@electron-forge/maker-squirrel",
           "config": {
-            "name": "voice_2d"
+            "name": "Zeitgeist Voice"
           }
         },
         {
