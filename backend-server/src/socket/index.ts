@@ -1,7 +1,6 @@
 import { WebSocket } from "@clusterws/cws";
 import { v4 as uuid } from "uuid";
 import { random } from "lodash";
-import SinkConnection from "./SinkConnection";
 
 const SOCKETS: {
     [id: string]: SocketWrapper,
@@ -22,7 +21,6 @@ type RoomMember = {
 } | {
     type: "SINK",
     owner: string,
-    connection: SinkConnection,
 })
 
 type RoomMemberWithoutConnection = Omit<RoomMember, "connection">
@@ -138,7 +136,6 @@ async function handleStringMessage(socket: SocketWrapper, message: string) {
             Object.entries(room.members)
                 .forEach(([id, member]) => {
                     if (member.type === "SINK" && member.owner === socket.id) {
-                        member.connection.close();
                         delete room.members[id];
                         sinks.push(id);
                     }
@@ -174,7 +171,6 @@ async function handleStringMessage(socket: SocketWrapper, message: string) {
                 return sendStringMessage(socket, failure);
             }
             const sinkID = uuid();
-            const connection = await SinkConnection.initialize(sinkID);
             const member: RoomMember = {
                 type: "SINK",
                 pos: {
@@ -182,11 +178,9 @@ async function handleStringMessage(socket: SocketWrapper, message: string) {
                     y: random(0, 100),
                 },
                 owner: socket.id,
-                connection,
             };
-            const { connection: _, ...withoutConnection } = member;
             const entryToSend = JSON.stringify({
-                ...withoutConnection,
+                ...member,
                 owner: socket.id,
                 id: sinkID,
             });
