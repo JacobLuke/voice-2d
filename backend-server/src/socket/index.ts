@@ -62,6 +62,11 @@ export function connectSocket(socket: WebSocket) {
                     sendStringMessage(SOCKETS[id], "ROOM.LEAVE.MEMBERS", wrapped.id, ...sinks);
                 });
             if (!Object.keys(room.members).length) {
+                Object.values(SOCKETS).forEach(otherSocket => {
+                    if (otherSocket.readyState === WebSocket.OPEN) {
+                        sendStringMessage(otherSocket, "ROOM.DELETE", roomID);
+                    }
+                });
                 delete ROOMS[roomID];
             }
         }
@@ -126,6 +131,11 @@ async function handleStringMessage(socket: SocketWrapper, message: string) {
                     }
                 },
             }
+            Object.values(SOCKETS).forEach(otherSocket => {
+                if (otherSocket.readyState === WebSocket.OPEN) {
+                    sendStringMessage(otherSocket, "ROOM.CREATE", roomID, data);
+                }
+            })
             return sendStringMessage(socket, success, roomID);
         }
         case "ROOM.LISTMEMBERS": {
@@ -169,6 +179,11 @@ async function handleStringMessage(socket: SocketWrapper, message: string) {
                     sendStringMessage(SOCKETS[id], "ROOM.LEAVE.MEMBERS", socket.id, ...sinks);
                 });
             if (!Object.keys(room.members).length) {
+                Object.values(SOCKETS).forEach(otherSocket => {
+                    if (otherSocket.readyState === WebSocket.OPEN) {
+                        sendStringMessage(otherSocket, "ROOM.DELETE", roomID);
+                    }
+                });
                 delete ROOMS[roomID];
             }
             return sendStringMessage(socket, success);

@@ -271,6 +271,17 @@ export default class Socket {
         return () => { this._globalPeerConnectionListener = null };
     }
 
+    onAddRoom(callback: (id: string, name: string) => void) {
+        return this.attachCallback("ROOM.CREATE", (data) => {
+            const [id, ...rest] = data.split(MESSAGE_SEPARATOR);
+            return callback(id, rest.join("MESSAGE_SEPARATOR"));
+        })
+    }
+
+    onDeleteRoom(callback: (id: string) => void) {
+        return this.attachCallback("ROOM.DELETE", callback);
+    }
+
     onAddMember(callback: (member: RoomMember & { id: string }) => void) {
         return this.attachCallback("ROOM.NEWMEMBER", (data: string) => {
             callback(JSON.parse(data));

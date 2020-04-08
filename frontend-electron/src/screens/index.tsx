@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from "react";
+import React, { FC, useCallback, useEffect, useState, useReducer } from "react";
 import styled from "styled-components";
 import ReactDOM from "react-dom";
 import Login from "./Login";
@@ -7,11 +7,39 @@ import ChatRoom from "./ChatRoom";
 import SocketContext from "../components/SocketContext";
 import Socket from "../socket";
 
+type RoomState = {
+    [id: string]: string,
+}
+
+type RoomAction = {
+    type: "ADD",
+    id: string,
+    name: string,
+} | {
+    type: "DELETE",
+    id: string,
+};
+
+function reduceRooms(state: RoomState, action: RoomAction): RoomState {
+    switch (action.type) {
+        case "ADD": {
+            return { ...state, [action.id]: action.name };
+        }
+        case "DELETE": {
+            const newState = { ...state };
+            delete newState[action.id];
+            return newState;
+        }
+        default:
+            return state;
+    }
+}
+
 const Root: FC<{ className?: string }> = ({ className }) => {
     const [socket, setSocket] = useState<Socket | null>(null);
     const [userName, setUserName] = useState<string | null>(null);
     const [room, setRoom] = useState<string | null>(null);
-    const [rooms, setRooms] = useState<{ [id: string]: string }>({});
+    const [rooms, roomDispatch] = useReducer(reduceRooms, {});
 
     useEffect(() => {
         Socket.init().then(setSocket);
@@ -22,7 +50,15 @@ const Root: FC<{ className?: string }> = ({ className }) => {
         if (!socket) {
             return;
         }
-        socket.listRooms().then(setRooms);
+        socket.listRooms().then(rooms => Object.entries(rooms).forEach(([id, name]) =>
+            roomDispatch({ type: "ADD", id, name })
+        ));
+        const removeOnAdd = socket.onAddRoom((id, name) => roomDispatch({ type: "ADD", id, name }));
+        const removeOnDelete = socket.onDeleteRoom((id) => roomDispatch({ type: "DELETE", id }));
+        return () => {
+            removeOnAdd();
+            removeOnDelete();
+        }
     }, [socket]);
 
     const handleSetUserName = useCallback((name: string) => {
@@ -36,10 +72,6 @@ const Root: FC<{ className?: string }> = ({ className }) => {
     }, [socket]);
     const handleCreateRoom = useCallback((name: string) => {
         socket?.createRoom(name).then(id => {
-            setRooms(rooms => ({
-                ...rooms,
-                [id]: name,
-            }));
             setRoom(id);
         })
     }, [socket, rooms]);
