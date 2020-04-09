@@ -1,7 +1,7 @@
 {
   "name": "voice-2d",
   "productName": "Zeitgeist Voice",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "private": true,
   "description": "Voice monorepository for chatting on a 2D Plane",
   "main": "",

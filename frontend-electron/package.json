@@ -1,7 +1,7 @@
 {
   "name": "frontend-electron",
   "productName": "Zeitgeist Voice",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "Electron frontend for Voice 2D",
   "main": ".webpack/main",
   "private": true,

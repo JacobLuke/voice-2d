@@ -1,6 +1,6 @@
 {
   "name": "backend-server",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "Backend server for Voice 2D handling global state",
   "main": "index.ts",
   "author": {
