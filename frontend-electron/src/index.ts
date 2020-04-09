@@ -17,11 +17,17 @@ const createWindow = () => {
     webPreferences: {
       nodeIntegration: true,
       preload: MAIN_WINDOW_WEBPACK_ENTRY,
+      devTools: process.env.NODE_ENV !== "production",
     },
   });
 
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+  if (process.env.NODE_ENV === "production") {
+    mainWindow.webContents.on('devtools-opened', () => {
+      mainWindow.webContents.closeDevTools();
+    });
+  }
 };
 
 // This method will be called when Electron has finished
