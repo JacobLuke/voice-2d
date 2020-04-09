@@ -15,13 +15,7 @@ type RoomMember = {
         x: number,
         y: number,
     },
-} & ({
-    type: "USER",
-    track?: string,
-} | {
-    type: "SINK",
-    owner: string,
-})
+}
 
 type RoomMemberWithoutConnection = Omit<RoomMember, "connection">
 
@@ -49,17 +43,9 @@ export function connectSocket(socket: WebSocket) {
             // TODO refactor this to share with "ROOM.LEAVE"
             const [roomID, room] = roomEntry;
             delete room.members[wrapped.id];
-            const sinks: string[] = [];
-            Object.entries(room.members)
-                .forEach(([id, member]) => {
-                    if (member.type === "SINK" && member.owner === wrapped.id) {
-                        delete room.members[id];
-                        sinks.push(id);
-                    }
-                });
             Object.entries(room.members).filter(([id, member]) =>
-                member.type === "USER" && SOCKETS[id]?.readyState === WebSocket.OPEN).forEach(([id]) => {
-                    sendStringMessage(SOCKETS[id], "ROOM.LEAVE.MEMBERS", wrapped.id, ...sinks);
+                SOCKETS[id]?.readyState === WebSocket.OPEN).forEach(([id]) => {
+                    sendStringMessage(SOCKETS[id], "ROOM.LEAVE.MEMBERS", wrapped.id);
                 });
             if (!Object.keys(room.members).length) {
                 Object.values(SOCKETS).forEach(otherSocket => {
@@ -92,7 +78,6 @@ async function handleStringMessage(socket: SocketWrapper, message: string) {
                 return sendStringMessage(socket, failure);
             }
             const newEntry: RoomMember = {
-                type: "USER",
                 pos: {
                     x: random(0, 100),
                     y: random(0, 100),
@@ -123,7 +108,6 @@ async function handleStringMessage(socket: SocketWrapper, message: string) {
                 name: data,
                 members: {
                     [socket.id]: {
-                        type: "USER",
                         pos: {
                             x: random(0, 100),
                             y: random(0, 100),
@@ -166,17 +150,9 @@ async function handleStringMessage(socket: SocketWrapper, message: string) {
             }
             const [roomID, room] = roomEntry;
             delete room.members[socket.id];
-            const sinks: string[] = [];
-            Object.entries(room.members)
-                .forEach(([id, member]) => {
-                    if (member.type === "SINK" && member.owner === socket.id) {
-                        delete room.members[id];
-                        sinks.push(id);
-                    }
-                });
             Object.entries(room.members).filter(([id, member]) =>
-                member.type === "USER" && SOCKETS[id]?.readyState === WebSocket.OPEN).forEach(([id]) => {
-                    sendStringMessage(SOCKETS[id], "ROOM.LEAVE.MEMBERS", socket.id, ...sinks);
+                SOCKETS[id]?.readyState === WebSocket.OPEN).forEach(([id]) => {
+                    sendStringMessage(SOCKETS[id], "ROOM.LEAVE.MEMBERS", socket.id);
                 });
             if (!Object.keys(room.members).length) {
                 Object.values(SOCKETS).forEach(otherSocket => {
@@ -198,65 +174,10 @@ async function handleStringMessage(socket: SocketWrapper, message: string) {
             }
             room.members[id].pos = { x, y };
             Object.entries(room.members).filter(([oid, member]) =>
-                member.type === "USER" && SOCKETS[oid]?.readyState === WebSocket.OPEN
+                SOCKETS[oid]?.readyState === WebSocket.OPEN
             ).forEach(([oid]) => {
                 sendStringMessage(SOCKETS[oid], "ROOM.MEMBER.MOVE", id, sx, sy);
             });
-            return sendStringMessage(socket, success);
-        }
-        case "ROOM.SINK.NEW": {
-            const room = Object.values(ROOMS).find(room => room.members[socket.id]);
-            if (!room) {
-                return sendStringMessage(socket, failure);
-            }
-            const sinkID = uuid();
-            const member: RoomMember = {
-                type: "SINK",
-                pos: {
-                    x: random(0, 100),
-                    y: random(0, 100),
-                },
-                owner: socket.id,
-            };
-            const entryToSend = JSON.stringify({
-                ...member,
-                owner: socket.id,
-                id: sinkID,
-            });
-            Object.keys(room.members).forEach(id => {
-                const other = SOCKETS[id];
-                if (other?.readyState === WebSocket.OPEN) {
-                    sendStringMessage(other, "ROOM.NEWMEMBER", entryToSend);
-                }
-            });
-            room.members[sinkID] = member;
-            return sendStringMessage(socket, success, data);
-        }
-        case "ROOM.SINK.START": {
-            const room = Object.values(ROOMS).find(room => room.members[data]);
-            const sink = room?.members?.[data]
-            if (!room || !sink || sink.type !== "SINK") {
-                return sendStringMessage(socket, failure);
-            }
-            // sink.connection.onStartRecord();
-            return sendStringMessage(socket, success);
-        }
-        case "ROOM.SINK.STOP": {
-            const room = Object.values(ROOMS).find(room => room.members[data]);
-            const sink = room?.members?.[data]
-            if (!sink || sink.type !== "SINK") {
-                return sendStringMessage(socket, failure);
-            }
-            // sink.connection.onStopRecord();
-            return sendStringMessage(socket, success);
-        }
-        case "ROOM.SINK.PLAY": {
-            const room = Object.values(ROOMS).find(room => room.members[data]);
-            const sink = room?.members?.[data]
-            if (!sink || sink.type !== "SINK") {
-                return sendStringMessage(socket, failure);
-            }
-            console.log("PLAY!");
             return sendStringMessage(socket, success);
         }
         case "CONNECTION.CANDIDATE":

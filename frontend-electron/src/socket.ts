@@ -3,24 +3,14 @@ const PONG = new Uint8Array([65]);
 
 const MESSAGE_SEPARATOR = "$/$";
 
-type BaseRoomMember = {
+export type RoomMember = {
     pos: {
         x: number,
         y: number,
     }
-};
-
-export type RoomUser = BaseRoomMember & {
-    type: "USER",
     name: string,
 };
 
-export type RoomSink = BaseRoomMember & {
-    type: "SINK",
-    owner: string,
-}
-
-export type RoomMember = RoomSink | RoomUser;
 
 function isPing(data: any) {
     if (!(data instanceof ArrayBuffer)) {
@@ -238,21 +228,6 @@ export default class Socket {
         return await this.getStringResponse("ROOM.NEW", name);
     }
 
-    async createSink(): Promise<void> {
-        await this.getStringResponse("ROOM.SINK.NEW");
-    }
-
-    async startSink(sink: string): Promise<void> {
-        await this.getStringResponse("ROOM.SINK.START", sink);
-    }
-    async stopSink(sink: string): Promise<void> {
-        await this.getStringResponse("ROOM.SINK.STOP", sink);
-    }
-
-    async playSink(sink: string): Promise<void> {
-        await this.getStringResponse("ROOM.SINK.PLAY", sink);
-    }
-
     addPeerConnectionListener(id: string, callback: (data: RTCPeerConnection | null) => void) {
         if (id === this.id) {
             return;
@@ -331,8 +306,4 @@ function parseStringMessage(message: string) {
         action,
         data: data.join(MESSAGE_SEPARATOR),
     }
-}
-
-function isPeerConnectionReady(peerConnection?: RTCPeerConnection) {
-    return peerConnection?.connectionState === "connected";
 }

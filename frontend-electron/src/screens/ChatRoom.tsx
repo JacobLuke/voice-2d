@@ -60,18 +60,6 @@ const ChatRoom: FC<{
     const handleUpdatePosition = useCallback(({ id, pos }: { id: string, pos: { x: number, y: number } }) => {
         socket?.updatePosition({ id, pos });
     }, [socket]);
-    const handleAddSink = useCallback(() => {
-        socket?.createSink()
-    }, [socket]);
-    const handleStartSink = useCallback((sink: string) => {
-        socket?.startSink(sink)
-    }, [socket]);
-    const handleStopSink = useCallback((sink: string) => {
-        socket?.stopSink(sink)
-    }, [socket]);
-    const handlePlaySink = useCallback((sink: string) => {
-        socket?.playSink(sink)
-    }, [socket]);
     useEffect(() => {
         if (!socket) {
             return;
@@ -111,9 +99,6 @@ const ChatRoom: FC<{
                     members={members}
                     userID={userID}
                     onMoveMember={handleUpdatePosition}
-                    onPlaySink={handlePlaySink}
-                    onStartSink={handleStartSink}
-                    onStopSink={handleStopSink}
                 />
             </DndProvider >
         </div>
