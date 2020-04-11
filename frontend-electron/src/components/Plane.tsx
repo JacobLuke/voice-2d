@@ -36,16 +36,16 @@ const Plane: FC<Props> = ({
         const newPos = listenerPos;
         switch (keyCode) {
             case 37:
-                newPos.x = newPos.x - 1;
+                newPos.x = newPos.x - 1 >= 0 ? newPos.x - 1 : 0;
             break;
             case 39:
-                newPos.x = newPos.x + 1;
+                newPos.x = newPos.x + 1 <= 100 ? newPos.x + 1 : 100;
             break;
             case 38:
-                newPos.y = newPos.y - 1;
+                newPos.y = newPos.y - 1 >= 0 ? newPos.y - 1 : 0;
             break;
             case 40:
-                newPos.y = newPos.y + 1;
+                newPos.y = newPos.y + 1 <= 100 ? newPos.y + 1 : 100;
             break;
         }
         onMoveMember({ id: userID, pos: newPos });
