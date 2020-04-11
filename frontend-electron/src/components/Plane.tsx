@@ -17,6 +17,9 @@ const Plane: FC<Props> = ({
     className,
     onMoveMember,
 }) => {
+    useEffect(() => {
+        document.addEventListener('keydown', moveUserIcon);
+    }, []);
     const handleDrop = useCallback((item: any, monitor: DropTargetMonitor) => {
         const { id, x, y } = item;
 
@@ -28,6 +31,26 @@ const Plane: FC<Props> = ({
         drop: handleDrop,
     })
     const listenerPos = members[userID]?.pos || { x: 50, y: 50 };
+    const moveUserIcon = (e: any) => {
+        var keyCode = e.keyCode;
+        const newPos = listenerPos;
+        switch (keyCode) {
+            case 37:
+                newPos.x = newPos.x - 1;
+            break;
+            case 39:
+                newPos.x = newPos.x + 1;
+            break;
+            case 38:
+                newPos.y = newPos.y - 1;
+            break;
+            case 40:
+                newPos.y = newPos.y + 1;
+            break;
+        }
+        onMoveMember({ id: userID, pos: newPos });
+    }
+
     return (
         <div className={className} ref={drop}>
             {Object.entries(members).map(([uid, member]) => <UserIcon
