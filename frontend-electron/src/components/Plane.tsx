@@ -3,6 +3,7 @@ import { useDrop, DropTargetMonitor } from "react-dnd";
 import styled from "styled-components";
 import UserIcon from "./UserIcon"
 import { RoomMember } from "../socket";
+import useKeyboardMovement from "../hooks/useKeyboardMovement";
 
 type Props = {
     members: { [id: string]: RoomMember },
@@ -28,29 +29,10 @@ const Plane: FC<Props> = ({
         drop: handleDrop,
     })
     const listenerPos = members[userID]?.pos || { x: 50, y: 50 };
-    const moveUserIcon = useCallback((e: KeyboardEvent) => {
-        var keyCode = e.keyCode;
-        const newPos = Object.assign({}, listenerPos);
-        switch (keyCode) {
-            case 37:
-                newPos.x = newPos.x - 1 >= 0 ? newPos.x - 1 : 0;
-            break;
-            case 39:
-                newPos.x = newPos.x + 1 <= 100 ? newPos.x + 1 : 100;
-            break;
-            case 38:
-                newPos.y = newPos.y - 1 >= 0 ? newPos.y - 1 : 0;
-            break;
-            case 40:
-                newPos.y = newPos.y + 1 <= 100 ? newPos.y + 1 : 100;
-            break;
-        }
+    const handleMoveMember = useCallback((newPos: { x: number, y: number }) => {
         onMoveMember({ id: userID, pos: newPos });
-    }, [listenerPos.x, listenerPos.y])
-    useEffect(() => {
-        document.addEventListener('keydown', moveUserIcon);
-        return () => document.removeEventListener('keydown', moveUserIcon);
-    }, [moveUserIcon]);
+    }, [userID]);
+    useKeyboardMovement(listenerPos, handleMoveMember, { x: [0, 100], y: [0, 100] })
 
     return (
         <div className={className} ref={drop}>
