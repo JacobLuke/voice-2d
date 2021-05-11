@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@clusterws/cws": "^1.5.0",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.21",
     "typescript": "^3.8.3",
     "uuid": "^7.0.3"
   },
